@@ -1,0 +1,36 @@
+{
+  "lead_fields": {
+    "id": "Id",
+    "name": "Name",
+    "source": "LeadSource",
+    "status": "Status",
+    "state": "State",
+    "campaign": "Campaign__c",
+    "converted_date": "ConvertedDate",
+    "created_date": "CreatedDate",
+    "quality_score": "Lead_Quality_Score__c",
+    "unqualified_reason": "Unqualified_Reason__c",
+    "in_practice": "In_Practice__c"
+  },
+  "matter_fields": {
+    "id": "Id",
+    "name": "Name",
+    "status": "litify_pm__Status__c",
+    "practice_area": "litify_pm__Practice_Area__r.Name",
+    "incident_date": "litify_pm__Incident_Date__c",
+    "signed_date": "litify_pm__Signed_Date__c",
+    "retainer_amount": "litify_pm__Retainer_Amount__c",
+    "case_quality": "litify_pm__Case_Quality_Score__c",
+    "matter_state": "litify_pm__Matter_State__c",
+    "referral_source": "litify_pm__Referral__r.Name",
+    "primary_intake": "litify_pm__Primary_Intake__r.Name",
+    "google_campaign": "Google_Campaign__c",
+    "lead_source": "Lead_Source__c"
+  },
+  "status_mapping": {
+    "qualified": ["Qualified", "Working", "Nurturing"],
+    "converted": ["Converted", "Signed"],
+    "unqualified": ["Unqualified", "Bad Timing", "Not Interested"],
+    "in_practice": ["Active", "Open", "In Litigation"]
+  }
+}

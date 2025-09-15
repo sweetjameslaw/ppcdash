@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard Debug Tool</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .bucket { margin: 10px 0; padding: 10px; border: 1px solid #ddd; }
+        .lsa { background-color: #fffbf0; }
+        .has-spend { font-weight: bold; color: green; }
+        .no-spend { color: gray; }
+        button { padding: 10px 20px; margin: 10px; cursor: pointer; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>Dashboard LSA Debug Tool</h1>
+    
+    <button onclick="checkDashboardData()">Check Dashboard Data</button>
+    <button onclick="forceClearCache()">Clear Cache & Reload</button>
+    <button onclick="checkFiltering()">Check Frontend Filtering</button>
+    
+    <div id="results"></div>
+
+    <script>
+        async function checkDashboardData() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<p>Fetching dashboard data...</p>';
+            
+            try {
+                const response = await fetch('/api/dashboard-data?force_refresh=true');
+                const data = await response.json();
+                
+                // Filter for LSA buckets
+                const lsaBuckets = data.buckets.filter(b => b.name.includes('LSA'));
+                const allBuckets = data.buckets;
+                
+                let html = '<h2>Dashboard Data Check</h2>';
+                html += `<p>Total buckets returned: ${allBuckets.length}</p>`;
+                html += `<p>LSA buckets found: ${lsaBuckets.length}</p>`;
+                
+                html += '<h3>LSA Buckets:</h3>';
+                if (lsaBuckets.length > 0) {
+                    lsaBuckets.forEach(bucket => {
+                        const hasSpend = bucket.cost > 0;
+                        html += `<div class="bucket lsa ${hasSpend ? 'has-spend' : 'no-spend'}">`;
+                        html += `<strong>${bucket.name}</strong><br>`;
+                        html += `Spend: $${bucket.cost.toFixed(2)}<br>`;
+                        html += `Campaigns: ${bucket.campaigns.length}<br>`;
+                        html += `Leads: ${bucket.leads}<br>`;
+                        if (bucket.campaigns.length > 0) {
+                            html += `Campaign IDs: <ul>`;
+                            bucket.campaigns.forEach(c => {
+                                html += `<li>${c}</li>`;
+                            });
+                            html += `</ul>`;
+                        }
+                        html += `</div>`;
+                    });
+                } else {
+                    html += '<p class="error">No LSA buckets found in data!</p>';
+                }
+                
+                html += '<h3>All Buckets Summary:</h3>';
+                allBuckets.forEach(bucket => {
+                    if (bucket.cost > 0 || bucket.leads > 0) {
+                        html += `<div class="bucket">`;
+                        html += `<strong>${bucket.name}</strong>: `;
+                        html += `$${bucket.cost.toFixed(2)} spend, ${bucket.leads} leads`;
+                        html += `</div>`;
+                    }
+                });
+                
+                html += '<h3>Raw Response:</h3>';
+                html += `<pre>${JSON.stringify(lsaBuckets, null, 2)}</pre>`;
+                
+                results.innerHTML = html;
+                
+                // Also log to console
+                console.log('Dashboard Data:', data);
+                console.log('LSA Buckets:', lsaBuckets);
+                
+            } catch (error) {
+                results.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+                console.error('Error fetching data:', error);
+            }
+        }
+        
+        async function forceClearCache() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<p>Clearing cache...</p>';
+            
+            try {
+                const clearResponse = await fetch('/api/clear-cache', { method: 'POST' });
+                const clearData = await clearResponse.json();
+                
+                results.innerHTML = '<p class="success">Cache cleared! Refetching data...</p>';
+                
+                // Wait a moment then fetch fresh data
+                setTimeout(() => checkDashboardData(), 500);
+                
+            } catch (error) {
+                results.innerHTML = `<p class="error">Error clearing cache: ${error.message}</p>`;
+            }
+        }
+        
+        function checkFiltering() {
+            const results = document.getElementById('results');
+            
+            // Check if there's any frontend filtering in the actual dashboard
+            let html = '<h2>Frontend Checks</h2>';
+            
+            // Check localStorage for any filters
+            html += '<h3>LocalStorage Settings:</h3>';
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                const value = localStorage.getItem(key);
+                html += `<p>${key}: ${value}</p>`;
+            }
+            
+            // Check sessionStorage
+            html += '<h3>SessionStorage Settings:</h3>';
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const key = sessionStorage.key(i);
+                const value = sessionStorage.getItem(key);
+                html += `<p>${key}: ${value}</p>`;
+            }
+            
+            // Check URL parameters
+            html += '<h3>URL Parameters:</h3>';
+            const params = new URLSearchParams(window.location.search);
+            for (const [key, value] of params) {
+                html += `<p>${key}: ${value}</p>`;
+            }
+            
+            results.innerHTML = html;
+        }
+        
+        // Auto-run check on load
+        window.onload = () => {
+            checkDashboardData();
+        };
+    </script>
+</body>
+</html>

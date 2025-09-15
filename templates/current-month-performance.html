@@ -1,0 +1,1697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sweet James - Current Month Performance</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        :root {
+            /* Industry Standard Data Colors */
+            --success: #16a34a;
+            --danger: #dc2626;
+            --warning: #ea580c;
+            --info: #2563eb;
+            --primary: #6366f1;
+            --secondary: #64748b;
+            
+            /* Neutral Palette */
+            --gray-50: #f8fafc;
+            --gray-100: #f1f5f9;
+            --gray-200: #e2e8f0;
+            --gray-300: #cbd5e1;
+            --gray-400: #94a3b8;
+            --gray-500: #64748b;
+            --gray-600: #475569;
+            --gray-700: #334155;
+            --gray-800: #1e293b;
+            --gray-900: #0f172a;
+        }
+        
+        body {
+            background: #f1f5f9;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Sidebar Styles */
+        .sidebar {
+            width: 280px;
+            background: white;
+            border-right: 1px solid #e5e7eb;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(0,0,0,0.05);
+        }
+        
+        .sidebar.collapsed {
+            width: 80px;
+        }
+        
+        .sidebar.collapsed .sidebar-text {
+            display: none;
+        }
+        
+        .sidebar-toggle {
+            position: absolute;
+            right: -15px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 30px;
+            height: 30px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        /* Main Content */
+        .main-content {
+            margin-left: 280px;
+            transition: margin-left 0.3s ease;
+            width: calc(100% - 280px);
+        }
+        
+        .main-content.expanded {
+            margin-left: 80px;
+            width: calc(100% - 80px);
+        }
+        
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        /* Metric Cards */
+        .metric-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.25rem;
+            border: 1px solid #e5e7eb;
+            transition: all 0.2s ease;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .metric-label {
+            font-size: 0.625rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6b7280;
+            margin-bottom: 0.5rem;
+        }
+        
+        .metric-value {
+            font-size: 1.875rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+        
+        .metric-change {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #6b7280;
+        }
+        
+        .text-cost { color: #1e293b; }
+        .text-leads { color: #2563eb; }
+        .text-cases { color: #16a34a; }
+        .text-retainers { color: #7c3aed; }
+        
+        .change-positive { color: #16a34a; }
+        .change-negative { color: #dc2626; }
+        .change-neutral { color: #6b7280; }
+        
+        /* Buttons */
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: #475569;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .btn-secondary:hover {
+            background: #f8fafc;
+        }
+        
+        /* State Filter Buttons */
+        .state-filter-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            background: white;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .state-filter-btn:hover {
+            background: #f8fafc;
+            border-color: #667eea;
+        }
+        
+        .state-filter-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: transparent;
+        }
+        
+        /* View Toggle */
+        .view-toggle {
+            background: #f1f5f9;
+            padding: 0.25rem;
+            border-radius: 8px;
+            display: inline-flex;
+        }
+        
+        .view-toggle button {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            background: transparent;
+            border: none;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .view-toggle button.active {
+            background: white;
+            color: #1e293b;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        /* Table */
+        .data-table {
+            background: white;
+            border-radius: 8px;
+            overflow: visible;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        
+        .data-table .overflow-x-auto {
+            overflow-x: auto;
+            overflow-y: visible;
+            max-height: calc(100vh - 400px);
+            position: relative;
+        }
+        
+        .data-table table {
+            width: 100%;
+            border-collapse: collapse;
+            position: relative;
+        }
+        
+        .data-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            background: #f8fafc;
+            border-bottom: 2px solid #e2e8f0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .data-table thead::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: -2px;
+            height: 2px;
+            background: #e2e8f0;
+        }
+        
+        .data-table th {
+            padding: 0.75rem 0.5rem;
+            text-align: left;
+            font-size: 0.625rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            color: #6b7280;
+            white-space: nowrap;
+        }
+        
+        .data-table tbody tr {
+            border-bottom: 1px solid #f1f5f9;
+            transition: background 0.2s ease;
+        }
+        
+        .data-table tbody tr:hover {
+            background: #f8fafc;
+        }
+        
+        .data-table td {
+            padding: 0.75rem 0.5rem;
+            font-size: 0.8125rem;
+            color: #1e293b;
+            white-space: nowrap;
+        }
+        
+        /* Special row states */
+        .row-today {
+            background: #eff6ff !important;
+        }
+        
+        .row-weekend {
+            background: #fafafa;
+        }
+        
+        .row-future {
+            opacity: 0.4;
+        }
+        
+        /* Bucket rows with alternating colors */
+        .bucket-row {
+            background: #f9fafb;
+            display: none;
+        }
+        
+        .bucket-row.show {
+            display: table-row;
+        }
+        
+        /* Alternating colors for bucket rows */
+        .bucket-row:nth-child(even) {
+            background: var(--gray-50);
+        }
+        
+        .bucket-row:nth-child(odd) {
+            background: white;
+        }
+        
+        .bucket-row:hover {
+            background: #eff6ff !important;
+        }
+        
+        .bucket-row td {
+            font-size: 0.75rem;
+            padding: 0.5rem;
+            font-weight: 500;
+            color: var(--gray-700);
+        }
+        
+        .bucket-row td .font-medium {
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+        
+        /* Bucket badges - NO BORDERS */
+        .bucket-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.025em;
+        }
+        
+        .bucket-california, .bucket-ca { 
+            background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+            color: #1e40af;
+        }
+        
+        .bucket-arizona, .bucket-az { 
+            background: linear-gradient(135deg, #fee2e2, #fecaca);
+            color: #991b1b;
+        }
+        
+        .bucket-georgia, .bucket-ga { 
+            background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+            color: #14532d;
+        }
+        
+        .bucket-texas, .bucket-tx { 
+            background: linear-gradient(135deg, #fef08a, #fde047);
+            color: #713f12;
+        }
+        
+        .bucket-lsa { 
+            background: linear-gradient(135deg, #f3e8ff, #e9d5ff);
+            color: #581c87;
+        }
+        
+        .bucket-brand { 
+            background: linear-gradient(135deg, #fef3c7, #fed7aa);
+            color: #92400e;
+        }
+        
+        .bucket-prospecting { 
+            background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+            color: #3730a3;
+        }
+        
+        .bucket-crisp-youtube, .bucket-youtube {
+            background: linear-gradient(135deg, #fee2e2, #fecaca);
+            color: #dc2626;
+        }
+        
+        /* Date cell */
+        .date-cell {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .date-num {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .date-day {
+            font-size: 0.625rem;
+            color: #6b7280;
+        }
+        
+        /* Chevron */
+        .chevron {
+            transition: transform 0.2s ease;
+            cursor: pointer;
+            color: #9ca3af;
+            font-size: 0.75rem;
+        }
+        
+        .chevron.rotated {
+            transform: rotate(90deg);
+            color: #64748b;
+        }
+        
+        .has-buckets {
+            cursor: pointer;
+        }
+        
+        .has-buckets:hover .chevron {
+            color: #64748b;
+        }
+        
+        /* Loading - ENHANCED VERSION */
+        .loader-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
+            backdrop-filter: blur(8px);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .loader-content {
+            text-align: center;
+            max-width: 400px;
+            padding: 2rem;
+        }
+        
+        .loader-logo {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #f59e0b 0%, #dc2626 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: .5;
+            }
+        }
+        
+        .loader-title {
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .loader-status {
+            color: #94a3b8;
+            font-size: 0.875rem;
+            margin-bottom: 1.5rem;
+            min-height: 20px;
+        }
+        
+        .progress-bar-container {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+        }
+        
+        .loader-details {
+            color: #64748b;
+            font-size: 0.75rem;
+        }
+        
+        /* Warning metric */
+        .warning-metric {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%) !important;
+            border-color: #f87171 !important;
+        }
+        
+        .warning-metric .metric-value {
+            color: #991b1b !important;
+        }
+        
+        /* Status dot */
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        /* Chart container */
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+        
+        /* Metrics typography from dashboard */
+        .metric-value-main {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+        
+        .metric-delta {
+            font-size: 0.625rem;
+            font-weight: 500;
+            margin-top: 0.125rem;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Loading - ENHANCED VERSION -->
+    <div id="loader" class="loader-overlay">
+        <div class="loader-content">
+            <div class="loader-logo">
+                <span class="font-bold text-white text-xl">SJ</span>
+            </div>
+            <h2 class="loader-title">Loading Dashboard</h2>
+            <div class="loader-status" id="loader-status">Initializing...</div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+            <div class="loader-details" id="loader-details">Please wait</div>
+        </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar fixed left-0 top-0 h-full z-50">
+        <div class="p-6 border-b border-gray-200">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center">
+                    <span class="font-bold text-white text-sm">SJ</span>
+                </div>
+                <div class="sidebar-text">
+                    <h1 class="text-lg font-bold text-gray-900">Sweet James</h1>
+                    <p class="text-xs text-gray-500">Current Month</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar Toggle -->
+        <div class="sidebar-toggle" onclick="toggleSidebar()">
+            <i id="sidebar-icon" class="fas fa-chevron-left text-gray-500 text-sm"></i>
+        </div>
+        
+        <!-- Sidebar Content -->
+        <div class="p-6 space-y-6 overflow-y-auto" style="height: calc(100% - 100px);">
+            <!-- API Status -->
+            <div>
+                <h3 class="text-xs font-semibold uppercase text-gray-500 mb-3 sidebar-text">API Status</h3>
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-md">
+                        <span class="text-sm text-gray-700 sidebar-text">Google Ads</span>
+                        <div id="google-status" class="status-dot bg-amber-500"></div>
+                    </div>
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-md">
+                        <span class="text-sm text-gray-700 sidebar-text">Salesforce</span>
+                        <div id="salesforce-status" class="status-dot bg-amber-500"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Navigation -->
+            <div>
+                <h3 class="text-xs font-semibold uppercase text-gray-500 mb-3 sidebar-text">Navigation</h3>
+                <div class="space-y-2">
+                    <a href="/" class="btn-secondary w-full px-3 py-2 rounded-md text-sm text-center block">
+                        <i class="fas fa-home mr-2"></i><span class="sidebar-text">Dashboard</span>
+                    </a>
+                    <a href="/current-month-performance" class="btn-primary w-full px-3 py-2 rounded-md text-sm text-center block">
+                        <i class="fas fa-calendar-day mr-2"></i><span class="sidebar-text">Current Month</span>
+                    </a>
+                    <a href="/forecasting" class="btn-secondary w-full px-3 py-2 rounded-md text-sm text-center block">
+                        <i class="fas fa-chart-line mr-2"></i><span class="sidebar-text">Forecasting</span>
+                    </a>
+                    <a href="/campaign-mapping" class="btn-secondary w-full px-3 py-2 rounded-md text-sm text-center block">
+                        <i class="fas fa-sitemap mr-2"></i><span class="sidebar-text">Campaign Mapping</span>
+                    </a>
+                    <a href="/annual-analytics" class="btn-secondary w-full px-3 py-2 rounded-md text-sm text-center block">
+                        <i class="fas fa-chart-bar mr-2"></i><span class="sidebar-text">Annual Analytics</span>
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Data Info -->
+            <div>
+                <h3 class="text-xs font-semibold uppercase text-gray-500 mb-3 sidebar-text">Data Source</h3>
+                <div class="p-3 bg-gray-50 rounded-md">
+                    <div class="text-sm font-medium text-gray-700 sidebar-text" id="data-source">Connecting...</div>
+                    <div class="text-xs text-gray-500 mt-1 sidebar-text">
+                        Last Updated: <span id="last-updated">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+    
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <!-- Header -->
+        <header class="card border-b sticky top-0 z-30">
+            <div class="px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-900">Current Month Performance</h2>
+                        <p class="text-sm text-gray-500 mt-1" id="month-label"></p>
+                    </div>
+                    
+                    <div class="flex items-center gap-3">
+                        <div class="view-toggle">
+                            <button id="btn-table" class="active" onclick="changeView('table')">
+                                <i class="fas fa-table mr-2"></i>Table
+                            </button>
+                            <button id="btn-charts" onclick="changeView('charts')">
+                                <i class="fas fa-chart-line mr-2"></i>Charts
+                            </button>
+                        </div>
+                        
+                        <button class="btn-secondary" onclick="exportToCSV()">
+                            <i class="fas fa-download mr-2"></i>Export CSV
+                        </button>
+                        
+                        <button class="btn-primary" onclick="refreshData()">
+                            <i class="fas fa-sync-alt mr-2"></i>Refresh
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Filters -->
+                <div class="flex items-center gap-3 mt-4">
+                    <!-- State Filter -->
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium text-gray-700">State:</span>
+                        <button class="state-filter-btn active" data-state="all" onclick="filterByState('all')">All</button>
+                        <button class="state-filter-btn" data-state="CA" onclick="filterByState('CA')">CA</button>
+                        <button class="state-filter-btn" data-state="AZ" onclick="filterByState('AZ')">AZ</button>
+                        <button class="state-filter-btn" data-state="GA" onclick="filterByState('GA')">GA</button>
+                        <button class="state-filter-btn" data-state="TX" onclick="filterByState('TX')">TX</button>
+                    </div>
+                    
+                    <div class="border-l border-gray-300 h-8 mx-2"></div>
+                    
+                    <select id="bucket-filter" class="px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" onchange="filterBuckets()">
+                        <option value="all">All Buckets Combined</option>
+                        <option value="breakdown" selected>Show Bucket Breakdown</option>
+                    </select>
+                    
+                    <button id="expand-all" class="btn-secondary text-sm" onclick="expandAll()">
+                        <i class="fas fa-expand-alt mr-2"></i>Expand All
+                    </button>
+                    
+                    <button id="collapse-all" class="btn-secondary text-sm" onclick="collapseAll()">
+                        <i class="fas fa-compress-alt mr-2"></i>Collapse All
+                    </button>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Content Area -->
+        <div class="p-6">
+            <!-- Summary Cards -->
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-6" id="summary-cards">
+                <!-- Populated by JS -->
+            </div>
+            
+            <!-- Table View -->
+            <div id="table-view" class="data-table">
+                <div class="overflow-x-auto" style="max-height: calc(100vh - 400px); overflow-y: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 90px">Date</th>
+                                <th>Ad Spend</th>
+                                <th>Leads</th>
+                                <th>% In Practice</th>
+                                <th># In Practice</th>
+                                <th>% Unqualified</th>
+                                <th># Unqualified</th>
+                                <th>CPL</th>
+                                <th>Cases</th>
+                                <th>CPA</th>
+                                <th>Retainers</th>
+                                <th>CPR</th>
+                                <th>Conv %</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Charts View -->
+            <div id="charts-view" style="display: none;">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="card p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Daily Spend & Leads</h3>
+                        <div class="chart-container">
+                            <canvas id="chart-spend-leads"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="card p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Cost Metrics</h3>
+                        <div class="chart-container">
+                            <canvas id="chart-costs"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="card p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Conversion Funnel</h3>
+                        <div class="chart-container">
+                            <canvas id="chart-funnel"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="card p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Conversion Rate</h3>
+                        <div class="chart-container">
+                            <canvas id="chart-conversion"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <script>
+    // Global data
+    let monthData = {};
+    let charts = {};
+    let currentView = 'table';
+    let currentFilter = 'breakdown';
+    let currentStateFilter = 'all';
+    let sidebarCollapsed = false;
+    
+    // Initialize
+    $(document).ready(function() {
+        const now = new Date();
+        $('#month-label').text(now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
+        refreshData();
+    });
+    
+    // Toggle sidebar
+    function toggleSidebar() {
+        sidebarCollapsed = !sidebarCollapsed;
+        const sidebar = $('#sidebar');
+        const mainContent = $('#main-content');
+        const icon = $('#sidebar-icon');
+        
+        if (sidebarCollapsed) {
+            sidebar.addClass('collapsed');
+            mainContent.addClass('expanded');
+            icon.removeClass('fa-chevron-left').addClass('fa-chevron-right');
+        } else {
+            sidebar.removeClass('collapsed');
+            mainContent.removeClass('expanded');
+            icon.removeClass('fa-chevron-right').addClass('fa-chevron-left');
+        }
+    }
+    
+    // Format functions
+    function formatCurrency(value) {
+        if (!value || isNaN(value)) return '$0';
+        return '$' + Math.round(value).toLocaleString('en-US');
+    }
+    
+    function formatNumber(value) {
+        if (!value || isNaN(value)) return '0';
+        return Math.round(value).toLocaleString('en-US');
+    }
+    
+    function formatPercent(value) {
+        if (value === undefined || value === null || isNaN(value)) return '0.00%';
+        
+        // Normal case - value is already a decimal (0.30 = 30%)
+        // or a percentage value that needs to be shown
+        if (value <= 1) {
+            return (value * 100).toFixed(2) + '%';
+        } else {
+            // Already a percentage (30 = 30%)
+            return value.toFixed(2) + '%';
+        }
+    }
+    
+    function formatDelta(value, isCount = false) {
+        if (value === undefined || value === null || isNaN(value) || value === 0) return '';
+        const sign = value > 0 ? '+' : '';
+        if (isCount) {
+            return sign + Math.round(value);
+        }
+        return sign + '$' + Math.round(value).toLocaleString();
+    }
+    
+    function getDeltaClass(value, inverse = false) {
+        if (!value || isNaN(value)) return 'change-neutral';
+        if (inverse) value = -value;
+        if (value > 0) return 'change-positive';
+        if (value < 0) return 'change-negative';
+        return 'change-neutral';
+    }
+    
+    // Get state from bucket name
+    function getStateFromBucket(bucketName) {
+        const bucketLower = bucketName.toLowerCase();
+        if (bucketLower.includes('california')) return 'CA';
+        if (bucketLower.includes('arizona')) return 'AZ';
+        if (bucketLower.includes('georgia')) return 'GA';
+        if (bucketLower.includes('texas')) return 'TX';
+        return null;
+    }
+    
+    // Filter by state
+    function filterByState(state) {
+        currentStateFilter = state;
+        
+        // Update button states
+        $('.state-filter-btn').removeClass('active');
+        $(`.state-filter-btn[data-state="${state}"]`).addClass('active');
+        
+        // Update display
+        updateSummaryCards();
+        updateBucketFilter();
+        renderTable();
+        
+        if (currentView === 'charts') {
+            renderCharts();
+        }
+    }
+    
+    // Enhanced loader functions
+    function showLoader() {
+        $('#loader').css('display', 'flex').hide().fadeIn(200);
+        $('#progress-bar').css('width', '0%');
+        $('#loader-status').text('Initializing...');
+        $('#loader-details').text('Please wait');
+    }
+    
+    function hideLoader() {
+        $('#loader').fadeOut(300);
+    }
+    
+    function updateLoader(progress, status, details) {
+        $('#progress-bar').css('width', progress + '%');
+        $('#loader-status').text(status);
+        $('#loader-details').text(details);
+    }
+    
+    // Fetch data with enhanced loading experience
+    async function refreshData() {
+        showLoader();
+        
+        try {
+            updateLoader(10, 'Connecting to APIs...', 'Establishing secure connection');
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            updateLoader(25, 'Fetching Google Ads data...', 'Retrieving campaign performance');
+            
+            const response = await fetch('/api/current-month-daily');
+            
+            updateLoader(50, 'Processing Salesforce data...', 'Syncing lead information');
+            
+            const data = await response.json();
+            
+            updateLoader(70, 'Calculating metrics...', 'Analyzing conversion rates');
+            
+            monthData = data;
+            console.log('Raw API Response:', data);
+            
+            updateLoader(85, 'Building dashboard...', 'Rendering components');
+            
+            updateSummaryCards();
+            updateBucketFilter();
+            renderTable();
+            
+            updateLoader(95, 'Finalizing...', 'Almost ready');
+            
+            if (currentView === 'charts') {
+                renderCharts();
+            }
+            
+            updateStatus();
+            
+            updateLoader(100, 'Complete!', 'Dashboard ready');
+            
+            setTimeout(() => {
+                hideLoader();
+            }, 500);
+            
+        } catch (error) {
+            console.error('Error:', error);
+            updateLoader(0, 'Error loading data', error.message);
+            setTimeout(() => {
+                hideLoader();
+                alert('Failed to load data: ' + error.message);
+            }, 1500);
+        }
+    }
+    
+    // Update summary cards with state filtering
+    function updateSummaryCards() {
+        const dailyData = monthData.daily_data || [];
+        const selectedBucket = $('#bucket-filter').val();
+        
+        const totals = {
+            spend: 0,
+            leads: 0,
+            cases: 0,
+            retainers: 0,
+            inPractice: 0,
+            unqualified: 0
+        };
+        
+        dailyData.forEach(day => {
+            if (!day.isFuture && !day.is_future) {
+                if (currentStateFilter === 'all') {
+                    // All states
+                    if (selectedBucket === 'all' || selectedBucket === 'breakdown') {
+                        totals.spend += day.spend || 0;
+                        totals.leads += day.leads || 0;
+                        totals.cases += day.cases || 0;
+                        totals.retainers += day.retainers || 0;
+                        totals.inPractice += day.inPractice || day.in_practice || 0;
+                        totals.unqualified += day.unqualified || 0;
+                    } else {
+                        if (day.buckets) {
+                            const bucket = day.buckets.find(b => b.name === selectedBucket);
+                            if (bucket) {
+                                totals.spend += bucket.spend || 0;
+                                totals.leads += bucket.leads || 0;
+                                totals.cases += bucket.cases || 0;
+                                totals.retainers += bucket.retainers || 0;
+                                totals.inPractice += bucket.inPractice || bucket.in_practice || 0;
+                                totals.unqualified += bucket.unqualified || 0;
+                            }
+                        }
+                    }
+                } else {
+                    // Filter by specific state
+                    if (day.buckets) {
+                        day.buckets.forEach(bucket => {
+                            const bucketState = getStateFromBucket(bucket.name);
+                            if (bucketState === currentStateFilter) {
+                                totals.spend += bucket.spend || 0;
+                                totals.leads += bucket.leads || 0;
+                                totals.cases += bucket.cases || 0;
+                                totals.retainers += bucket.retainers || 0;
+                                totals.inPractice += bucket.inPractice || bucket.in_practice || 0;
+                                totals.unqualified += bucket.unqualified || 0;
+                            }
+                        });
+                    }
+                }
+            }
+        });
+        
+        const avgCpl = totals.leads > 0 ? totals.spend / totals.leads : 0;
+        const avgCpa = totals.cases > 0 ? totals.spend / totals.cases : 0;
+        const avgCpr = totals.retainers > 0 ? totals.spend / totals.retainers : 0;
+        const convRate = totals.leads > 0 ? (totals.retainers / totals.leads) * 100 : 0;
+        
+        const filterLabel = currentStateFilter !== 'all' ? 
+            `${currentStateFilter} State` : 
+            (selectedBucket !== 'all' && selectedBucket !== 'breakdown' ? selectedBucket : 'All Buckets');
+        
+        const cards = `
+            <div class="metric-card">
+                <div class="metric-label">Total Spend</div>
+                <div class="metric-value text-cost">${formatCurrency(totals.spend)}</div>
+                <div class="metric-change text-gray-500 text-xs">${filterLabel}</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">Total Leads</div>
+                <div class="metric-value text-leads">${formatNumber(totals.leads)}</div>
+                <div class="metric-change text-gray-500 text-xs">
+                    ${totals.leads > 0 ? formatCurrency(totals.spend / totals.leads) + ' avg' : ''}
+                </div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">Total Cases</div>
+                <div class="metric-value text-cases">${formatNumber(totals.cases)}</div>
+                <div class="metric-change text-gray-500 text-xs">
+                    ${totals.leads > 0 ? ((totals.cases / totals.leads) * 100).toFixed(1) + '% of leads' : ''}
+                </div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">Total Retainers</div>
+                <div class="metric-value text-retainers">${formatNumber(totals.retainers)}</div>
+                <div class="metric-change text-gray-500 text-xs">
+                    ${totals.cases > 0 ? ((totals.retainers / totals.cases) * 100).toFixed(1) + '% of cases' : ''}
+                </div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">In Practice</div>
+                <div class="metric-value text-cases">${formatNumber(totals.inPractice)}</div>
+                <div class="metric-change text-gray-500 text-xs">
+                    ${totals.leads > 0 ? ((totals.inPractice / totals.leads) * 100).toFixed(1) + '% of leads' : ''}
+                </div>
+            </div>
+            
+            <div class="metric-card ${avgCpl > 1000 ? 'warning-metric' : ''}">
+                <div class="metric-label">Avg CPL</div>
+                <div class="metric-value text-cost">${formatCurrency(avgCpl)}</div>
+                <div class="metric-change text-gray-500 text-xs">
+                    ${totals.leads > 0 ? 'Per lead' : ''}
+                </div>
+            </div>
+            
+            <div class="metric-card ${avgCpa > 5000 ? 'warning-metric' : ''}">
+                <div class="metric-label">Avg CPA</div>
+                <div class="metric-value text-cost">${formatCurrency(avgCpa)}</div>
+                <div class="metric-change text-gray-500 text-xs">
+                    ${totals.cases > 0 ? 'Per case' : ''}
+                </div>
+            </div>
+            
+            <div class="metric-card ${convRate < 20 ? 'warning-metric' : ''}">
+                <div class="metric-label">Conv Rate</div>
+                <div class="metric-value">${formatPercent(convRate / 100)}</div>
+                <div class="metric-change text-gray-500 text-xs">
+                    ${totals.retainers > 0 ? totals.retainers + ' retainers' : ''}
+                </div>
+            </div>
+        `;
+        
+        $('#summary-cards').html(cards);
+    }
+    
+    // Update bucket filter based on state
+    function updateBucketFilter() {
+        const buckets = monthData.available_buckets || [];
+        const select = $('#bucket-filter');
+        const currentValue = select.val();
+        
+        select.find('option:gt(1)').remove();
+        
+        if (currentStateFilter !== 'all') {
+            // Filter buckets by state
+            buckets.forEach(bucket => {
+                const bucketState = getStateFromBucket(bucket);
+                if (bucketState === currentStateFilter) {
+                    select.append(`<option value="${bucket}">${bucket}</option>`);
+                }
+            });
+        } else {
+            // Show all buckets
+            buckets.forEach(bucket => {
+                select.append(`<option value="${bucket}">${bucket}</option>`);
+            });
+        }
+        
+        // Restore previous value if it exists
+        if (select.find(`option[value="${currentValue}"]`).length) {
+            select.val(currentValue);
+        }
+    }
+    
+    // Render table with state filtering
+    function renderTable() {
+        const tbody = $('#table-body');
+        tbody.empty();
+        
+        const dailyData = monthData.daily_data || [];
+        
+        if (dailyData.length === 0) {
+            tbody.append('<tr><td colspan="13" class="text-center py-8 text-gray-500">No data available</td></tr>');
+            return;
+        }
+        
+        let bucketRowIndex = 0;
+        
+        dailyData.forEach((day, index) => {
+            const isToday = day.isToday || day.is_today || false;
+            const isWeekend = day.isWeekend || day.is_weekend || false;
+            const isFuture = day.isFuture || day.is_future || false;
+            const hasBuckets = day.buckets && day.buckets.length > 0;
+            
+            // Calculate day totals based on state filter
+            let dayData = {
+                spend: 0,
+                leads: 0,
+                inPractice: 0,
+                unqualified: 0,
+                cases: 0,
+                retainers: 0,
+                cpl: 0,
+                cpa: 0,
+                cpr: 0,
+                convRate: 0
+            };
+            
+            if (currentStateFilter === 'all') {
+                // Use original day data
+                dayData = {
+                    spend: day.spend || 0,
+                    leads: day.leads || 0,
+                    inPractice: day.inPractice || day.in_practice || 0,
+                    unqualified: day.unqualified || 0,
+                    cases: day.cases || 0,
+                    retainers: day.retainers || 0,
+                    cpl: day.cpl || 0,
+                    cpa: day.cpa || 0,
+                    cpr: day.cpr || 0,
+                    convRate: day.convRate || day.conv_rate || 0
+                };
+            } else {
+                // Sum up data for selected state only
+                if (day.buckets) {
+                    day.buckets.forEach(bucket => {
+                        const bucketState = getStateFromBucket(bucket.name);
+                        if (bucketState === currentStateFilter) {
+                            dayData.spend += bucket.spend || 0;
+                            dayData.leads += bucket.leads || 0;
+                            dayData.inPractice += bucket.inPractice || bucket.in_practice || 0;
+                            dayData.unqualified += bucket.unqualified || 0;
+                            dayData.cases += bucket.cases || 0;
+                            dayData.retainers += bucket.retainers || 0;
+                        }
+                    });
+                    
+                    // Calculate averages
+                    if (dayData.leads > 0) {
+                        dayData.cpl = dayData.spend / dayData.leads;
+                        dayData.convRate = (dayData.retainers / dayData.leads);
+                    }
+                    if (dayData.cases > 0) {
+                        dayData.cpa = dayData.spend / dayData.cases;
+                    }
+                    if (dayData.retainers > 0) {
+                        dayData.cpr = dayData.spend / dayData.retainers;
+                    }
+                }
+            }
+            
+            // Skip row if no data for selected state (unless it's a future date)
+            if (currentStateFilter !== 'all' && dayData.spend === 0 && dayData.leads === 0 && !isFuture) {
+                return;
+            }
+            
+            const inPracticePct = dayData.leads > 0 ? (dayData.inPractice / dayData.leads) * 100 : 0;
+            const unqualifiedPct = dayData.leads > 0 ? (dayData.unqualified / dayData.leads) * 100 : 0;
+            
+            let rowClass = '';
+            if (isToday) rowClass = 'row-today';
+            else if (isWeekend) rowClass = 'row-weekend';
+            else if (isFuture) rowClass = 'row-future';
+            
+            if (hasBuckets && currentFilter === 'breakdown' && !isFuture) {
+                rowClass += ' has-buckets';
+            }
+            
+            const dateDisplay = `
+                <div class="date-cell">
+                    ${hasBuckets && currentFilter === 'breakdown' && !isFuture ? 
+                        '<i class="fas fa-chevron-right chevron"></i>' : 
+                        '<span style="width: 14px; display: inline-block;"></span>'}
+                    <div>
+                        <div class="date-num">${day.dayNum || day.day_num || index + 1}</div>
+                        <div class="date-day">${day.dayName || day.day_name || ''}</div>
+                    </div>
+                </div>
+            `;
+            
+            const spendDelta = currentStateFilter === 'all' ? (day.spendDelta || day.spend_delta || null) : null;
+            const leadsDelta = currentStateFilter === 'all' ? (day.leadsDelta || day.leads_delta || null) : null;
+            
+            const row = $(
+                '<tr class="' + rowClass + '" data-index="' + index + '">' +
+                    '<td>' + dateDisplay + '</td>' +
+                    '<td>' +
+                        '<div class="metric-value-main">' + formatCurrency(dayData.spend) + '</div>' +
+                        (spendDelta !== null && spendDelta !== undefined ? 
+                            '<div class="metric-delta ' + getDeltaClass(spendDelta, true) + '">' + formatDelta(spendDelta) + '</div>' : '') +
+                    '</td>' +
+                    '<td>' +
+                        '<div class="metric-value-main">' + formatNumber(dayData.leads) + '</div>' +
+                        (leadsDelta !== null && leadsDelta !== undefined ? 
+                            '<div class="metric-delta ' + getDeltaClass(leadsDelta, false) + '">' + formatDelta(leadsDelta, true) + '</div>' : '') +
+                    '</td>' +
+                    '<td>' + formatPercent(inPracticePct / 100) + '</td>' +
+                    '<td>' + formatNumber(dayData.inPractice) + '</td>' +
+                    '<td>' + formatPercent(unqualifiedPct / 100) + '</td>' +
+                    '<td>' + formatNumber(dayData.unqualified) + '</td>' +
+                    '<td>' + formatCurrency(dayData.cpl) + '</td>' +
+                    '<td>' + formatNumber(dayData.cases) + '</td>' +
+                    '<td>' + formatCurrency(dayData.cpa) + '</td>' +
+                    '<td>' + formatNumber(dayData.retainers) + '</td>' +
+                    '<td>' + formatCurrency(dayData.cpr) + '</td>' +
+                    '<td>' + formatPercent(dayData.convRate) + '</td>' +
+                '</tr>'
+            );
+            
+            tbody.append(row);
+            
+            if (hasBuckets && currentFilter === 'breakdown') {
+                // Filter buckets by state if needed
+                const bucketsToShow = currentStateFilter === 'all' ? 
+                    day.buckets : 
+                    day.buckets.filter(b => getStateFromBucket(b.name) === currentStateFilter);
+                
+                bucketsToShow.forEach((bucket, bucketIndex) => {
+                    bucketRowIndex++;
+                    const bucketInPractice = bucket.inPractice || bucket.in_practice || 0;
+                    const bucketUnqualified = bucket.unqualified || 0;
+                    const bucketLeads = bucket.leads || 0;
+                    const bucketInPracticePct = bucketLeads > 0 ? (bucketInPractice / bucketLeads) * 100 : 0;
+                    const bucketUnqualifiedPct = bucketLeads > 0 ? (bucketUnqualified / bucketLeads) * 100 : 0;
+                    
+                    const bucketRowClass = bucketRowIndex % 2 === 0 ? 'even' : 'odd';
+                    
+                    const bucketRow = $(
+                        '<tr class="bucket-row bucket-row-' + bucketRowClass + '" data-parent="' + index + '">' +
+                            '<td>' +
+                                '<div style="margin-left: 2.5rem;">' +
+                                    '<span class="bucket-badge bucket-' + bucket.name.toLowerCase().replace(/\s+/g, '-') + '">' +
+                                        bucket.name +
+                                    '</span>' +
+                                '</div>' +
+                            '</td>' +
+                            '<td><div class="font-medium">' + formatCurrency(bucket.spend || 0) + '</div></td>' +
+                            '<td><div class="font-medium">' + formatNumber(bucketLeads) + '</div></td>' +
+                            '<td>' + formatPercent(bucketInPracticePct / 100) + '</td>' +
+                            '<td>' + formatNumber(bucketInPractice) + '</td>' +
+                            '<td>' + formatPercent(bucketUnqualifiedPct / 100) + '</td>' +
+                            '<td>' + formatNumber(bucketUnqualified) + '</td>' +
+                            '<td>' + formatCurrency(bucket.cpl || 0) + '</td>' +
+                            '<td>' + formatNumber(bucket.cases || 0) + '</td>' +
+                            '<td>' + formatCurrency(bucket.cpa || 0) + '</td>' +
+                            '<td>' + formatNumber(bucket.retainers || 0) + '</td>' +
+                            '<td>' + formatCurrency(bucket.cpr || 0) + '</td>' +
+                            '<td>' + formatPercent((bucket.convRate || bucket.conv_rate || 0)) + '</td>' +
+                        '</tr>'
+                    );
+                    tbody.append(bucketRow);
+                });
+                
+                if (!isFuture && bucketsToShow.length > 0) {
+                    row.on('click', function() {
+                        toggleBuckets(index);
+                    });
+                }
+            }
+        });
+    }
+    
+    // Toggle buckets
+    function toggleBuckets(index) {
+        const bucketRows = $(`.bucket-row[data-parent="${index}"]`);
+        const chevron = $(`.has-buckets[data-index="${index}"] .chevron, tr[data-index="${index}"] .chevron`);
+        
+        if (bucketRows.hasClass('show')) {
+            bucketRows.removeClass('show');
+            chevron.removeClass('rotated');
+        } else {
+            bucketRows.addClass('show');
+            chevron.addClass('rotated');
+        }
+    }
+    
+    // Expand/Collapse all
+    function expandAll() {
+        $('.bucket-row').addClass('show');
+        $('.chevron').addClass('rotated');
+    }
+    
+    function collapseAll() {
+        $('.bucket-row').removeClass('show');
+        $('.chevron').removeClass('rotated');
+    }
+    
+    // Filter buckets
+    function filterBuckets() {
+        currentFilter = $('#bucket-filter').val();
+        updateSummaryCards();
+        renderTable();
+        
+        if (currentFilter === 'breakdown') {
+            $('#expand-all, #collapse-all').show();
+        } else {
+            $('#expand-all, #collapse-all').hide();
+        }
+    }
+    
+    // Change view
+    function changeView(view) {
+        currentView = view;
+        
+        $('.view-toggle button').removeClass('active');
+        $(`#btn-${view}`).addClass('active');
+        
+        if (view === 'table') {
+            $('#table-view').show();
+            $('#charts-view').hide();
+        } else {
+            $('#table-view').hide();
+            $('#charts-view').show();
+            renderCharts();
+        }
+    }
+    
+    // Update status
+    function updateStatus() {
+        const now = new Date();
+        $('#last-updated').text(now.toLocaleTimeString());
+        
+        if (monthData.daily_data && monthData.daily_data.length > 0) {
+            $('#google-status').removeClass('bg-amber-500').addClass('bg-green-500');
+            $('#salesforce-status').removeClass('bg-amber-500').addClass('bg-green-500');
+            $('#data-source').text('Live Data');
+        } else {
+            $('#data-source').text('No Data');
+        }
+    }
+    
+    // Render charts with state filtering
+    function renderCharts() {
+        Object.values(charts).forEach(chart => chart?.destroy());
+        charts = {};
+        
+        const dailyData = monthData.daily_data || [];
+        
+        // Filter and process data based on state
+        const chartData = dailyData.filter(d => !d.isFuture && !d.is_future).map(day => {
+            if (currentStateFilter === 'all') {
+                return day;
+            } else {
+                // Calculate totals for selected state
+                let stateData = {
+                    dayNum: day.dayNum || day.day_num,
+                    spend: 0,
+                    leads: 0,
+                    cases: 0,
+                    retainers: 0,
+                    cpl: 0,
+                    cpa: 0,
+                    cpr: 0,
+                    convRate: 0
+                };
+                
+                if (day.buckets) {
+                    day.buckets.forEach(bucket => {
+                        const bucketState = getStateFromBucket(bucket.name);
+                        if (bucketState === currentStateFilter) {
+                            stateData.spend += bucket.spend || 0;
+                            stateData.leads += bucket.leads || 0;
+                            stateData.cases += bucket.cases || 0;
+                            stateData.retainers += bucket.retainers || 0;
+                        }
+                    });
+                    
+                    // Calculate averages
+                    if (stateData.leads > 0) {
+                        stateData.cpl = stateData.spend / stateData.leads;
+                        stateData.convRate = (stateData.retainers / stateData.leads) * 100;
+                    }
+                    if (stateData.cases > 0) {
+                        stateData.cpa = stateData.spend / stateData.cases;
+                    }
+                    if (stateData.retainers > 0) {
+                        stateData.cpr = stateData.spend / stateData.retainers;
+                    }
+                }
+                
+                return stateData;
+            }
+        });
+        
+        if (chartData.length === 0) {
+            $('#charts-view').html('<div class="text-center py-20 text-gray-500">No data available for charts</div>');
+            return;
+        }
+        
+        const labels = chartData.map(d => d.dayNum || d.day_num || '');
+        
+        // Chart 1: Spend & Leads
+        charts.spendLeads = new Chart(document.getElementById('chart-spend-leads'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Daily Spend',
+                    data: chartData.map(d => d.spend || 0),
+                    borderColor: '#8b5cf6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                    yAxisID: 'y1',
+                    tension: 0.3
+                }, {
+                    label: 'Leads',
+                    data: chartData.map(d => d.leads || 0),
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    yAxisID: 'y2',
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y1: {
+                        type: 'linear',
+                        position: 'left',
+                        ticks: { 
+                            callback: function(value) {
+                                return '$' + value.toLocaleString();
+                            }
+                        }
+                    },
+                    y2: {
+                        type: 'linear',
+                        position: 'right',
+                        grid: { drawOnChartArea: false }
+                    }
+                }
+            }
+        });
+        
+        // Chart 2: Cost Metrics
+        charts.costs = new Chart(document.getElementById('chart-costs'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'CPL',
+                    data: chartData.map(d => d.cpl || 0),
+                    borderColor: '#3b82f6',
+                    tension: 0.3
+                }, {
+                    label: 'CPA',
+                    data: chartData.map(d => d.cpa || 0),
+                    borderColor: '#f59e0b',
+                    tension: 0.3
+                }, {
+                    label: 'CPR',
+                    data: chartData.map(d => d.cpr || 0),
+                    borderColor: '#ef4444',
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { 
+                        ticks: { 
+                            callback: function(value) {
+                                return '$' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Chart 3: Funnel
+        charts.funnel = new Chart(document.getElementById('chart-funnel'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Leads',
+                    data: chartData.map(d => d.leads || 0),
+                    backgroundColor: '#3b82f6'
+                }, {
+                    label: 'Cases',
+                    data: chartData.map(d => d.cases || 0),
+                    backgroundColor: '#10b981'
+                }, {
+                    label: 'Retainers',
+                    data: chartData.map(d => d.retainers || 0),
+                    backgroundColor: '#8b5cf6'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+        
+        // Chart 4: Conversion Rate
+        charts.conversion = new Chart(document.getElementById('chart-conversion'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Conversion Rate (%)',
+                    data: chartData.map(d => {
+                        const rate = d.convRate || d.conv_rate || 0;
+                        return rate < 1 ? rate * 100 : rate;
+                    }),
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { 
+                        ticks: { 
+                            callback: function(value) {
+                                return value.toFixed(2) + '%';
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Export to CSV function with state filtering
+    function exportToCSV() {
+        const dailyData = monthData.daily_data || [];
+        if (dailyData.length === 0) {
+            alert('No data to export');
+            return;
+        }
+        
+        function cleanDollar(value) {
+            return Math.round(parseFloat(value) || 0);
+        }
+        
+        let csvContent = '';
+        const stateLabel = currentStateFilter !== 'all' ? ` - ${currentStateFilter} State` : '';
+        
+        csvContent += `Date,Day,Bucket${stateLabel},Ad Spend,Leads,% In Practice,# In Practice,% Unqualified,# Unqualified,CPL,Cases,CPA,Retainers,CPR,Conv %\n`;
+        
+        dailyData.forEach(day => {
+            if (!day.isFuture && !day.is_future) {
+                const dayNum = day.dayNum || day.day_num || '';
+                const dayName = day.dayName || day.day_name || '';
+                const date = `${dayName} ${dayNum}`;
+                
+                if (currentStateFilter === 'all') {
+                    // Export all data
+                    const inPractice = Math.round(day.inPractice || day.in_practice || 0);
+                    const unqualified = Math.round(day.unqualified || 0);
+                    const leads = Math.round(day.leads || 0);
+                    const inPracticePct = leads > 0 ? ((inPractice / leads) * 100).toFixed(1) : '0';
+                    const unqualifiedPct = leads > 0 ? ((unqualified / leads) * 100).toFixed(1) : '0';
+                    const convRate = (day.convRate || day.conv_rate || 0);
+                    const convRateFormatted = convRate < 1 ? (convRate * 100).toFixed(2) : convRate.toFixed(2);
+                    
+                    const spend = cleanDollar(day.spend);
+                    const cpl = cleanDollar(day.cpl);
+                    const cpa = cleanDollar(day.cpa);
+                    const cpr = cleanDollar(day.cpr);
+                    const cases = Math.round(day.cases || 0);
+                    const retainers = Math.round(day.retainers || 0);
+                    
+                    csvContent += `${date},${dayNum},All Buckets,${spend},${leads},${inPracticePct},${inPractice},${unqualifiedPct},${unqualified},${cpl},${cases},${cpa},${retainers},${cpr},${convRateFormatted}\n`;
+                    
+                    if (day.buckets && currentFilter === 'breakdown') {
+                        day.buckets.forEach(bucket => {
+                            const bucketInPractice = Math.round(bucket.inPractice || bucket.in_practice || 0);
+                            const bucketUnqualified = Math.round(bucket.unqualified || 0);
+                            const bucketLeads = Math.round(bucket.leads || 0);
+                            const bucketInPracticePct = bucketLeads > 0 ? ((bucketInPractice / bucketLeads) * 100).toFixed(1) : '0';
+                            const bucketUnqualifiedPct = bucketLeads > 0 ? ((bucketUnqualified / bucketLeads) * 100).toFixed(1) : '0';
+                            const bucketConvRate = (bucket.convRate || bucket.conv_rate || 0);
+                            const bucketConvRateFormatted = bucketConvRate < 1 ? (bucketConvRate * 100).toFixed(2) : bucketConvRate.toFixed(2);
+                            
+                            const bucketSpend = cleanDollar(bucket.spend);
+                            const bucketCpl = cleanDollar(bucket.cpl);
+                            const bucketCpa = cleanDollar(bucket.cpa);
+                            const bucketCpr = cleanDollar(bucket.cpr);
+                            const bucketCases = Math.round(bucket.cases || 0);
+                            const bucketRetainers = Math.round(bucket.retainers || 0);
+                            
+                            csvContent += `${date},${dayNum},${bucket.name},${bucketSpend},${bucketLeads},${bucketInPracticePct},${bucketInPractice},${bucketUnqualifiedPct},${bucketUnqualified},${bucketCpl},${bucketCases},${bucketCpa},${bucketRetainers},${bucketCpr},${bucketConvRateFormatted}\n`;
+                        });
+                    }
+                } else {
+                    // Export only selected state data
+                    let stateData = {
+                        spend: 0,
+                        leads: 0,
+                        inPractice: 0,
+                        unqualified: 0,
+                        cases: 0,
+                        retainers: 0
+                    };
+                    
+                    if (day.buckets) {
+                        day.buckets.forEach(bucket => {
+                            const bucketState = getStateFromBucket(bucket.name);
+                            if (bucketState === currentStateFilter) {
+                                stateData.spend += bucket.spend || 0;
+                                stateData.leads += bucket.leads || 0;
+                                stateData.inPractice += bucket.inPractice || bucket.in_practice || 0;
+                                stateData.unqualified += bucket.unqualified || 0;
+                                stateData.cases += bucket.cases || 0;
+                                stateData.retainers += bucket.retainers || 0;
+                                
+                                // Also export individual bucket rows if in breakdown mode
+                                if (currentFilter === 'breakdown') {
+                                    const bucketInPractice = Math.round(bucket.inPractice || bucket.in_practice || 0);
+                                    const bucketUnqualified = Math.round(bucket.unqualified || 0);
+                                    const bucketLeads = Math.round(bucket.leads || 0);
+                                    const bucketInPracticePct = bucketLeads > 0 ? ((bucketInPractice / bucketLeads) * 100).toFixed(1) : '0';
+                                    const bucketUnqualifiedPct = bucketLeads > 0 ? ((bucketUnqualified / bucketLeads) * 100).toFixed(1) : '0';
+                                    const bucketConvRate = (bucket.convRate || bucket.conv_rate || 0);
+                                    const bucketConvRateFormatted = bucketConvRate < 1 ? (bucketConvRate * 100).toFixed(2) : bucketConvRate.toFixed(2);
+                                    
+                                    csvContent += `${date},${dayNum},${bucket.name},${cleanDollar(bucket.spend)},${bucketLeads},${bucketInPracticePct},${bucketInPractice},${bucketUnqualifiedPct},${bucketUnqualified},${cleanDollar(bucket.cpl)},${Math.round(bucket.cases || 0)},${cleanDollar(bucket.cpa)},${Math.round(bucket.retainers || 0)},${cleanDollar(bucket.cpr)},${bucketConvRateFormatted}\n`;
+                                }
+                            }
+                        });
+                    }
+                    
+                    // Add state total row if there's data and not in breakdown mode
+                    if ((stateData.spend > 0 || stateData.leads > 0) && currentFilter !== 'breakdown') {
+                        const inPracticePct = stateData.leads > 0 ? ((stateData.inPractice / stateData.leads) * 100).toFixed(1) : '0';
+                        const unqualifiedPct = stateData.leads > 0 ? ((stateData.unqualified / stateData.leads) * 100).toFixed(1) : '0';
+                        const cpl = stateData.leads > 0 ? Math.round(stateData.spend / stateData.leads) : 0;
+                        const cpa = stateData.cases > 0 ? Math.round(stateData.spend / stateData.cases) : 0;
+                        const cpr = stateData.retainers > 0 ? Math.round(stateData.spend / stateData.retainers) : 0;
+                        const convRate = stateData.leads > 0 ? ((stateData.retainers / stateData.leads) * 100).toFixed(2) : '0';
+                        
+                        csvContent += `${date},${dayNum},${currentStateFilter} Total,${Math.round(stateData.spend)},${Math.round(stateData.leads)},${inPracticePct},${Math.round(stateData.inPractice)},${unqualifiedPct},${Math.round(stateData.unqualified)},${cpl},${Math.round(stateData.cases)},${cpa},${Math.round(stateData.retainers)},${cpr},${convRate}\n`;
+                    }
+                }
+            }
+        });
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        
+        const now = new Date();
+        const filename = `current_month_performance_${now.getFullYear()}_${(now.getMonth() + 1).toString().padStart(2, '0')}_${now.getDate().toString().padStart(2, '0')}${stateLabel.replace(' - ', '_').replace(' ', '_')}.csv`;
+        
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
+</body>
+</html>

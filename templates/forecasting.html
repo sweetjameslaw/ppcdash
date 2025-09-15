@@ -1,0 +1,1323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sweet James - Forecasting & Pacing Dashboard</title>
+    
+    <!-- CSS Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/main.css">
+    
+    <!-- JavaScript Libraries -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts@latest"></script>
+    
+    <style>
+        .loading-spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .tab-button {
+            padding: 0.75rem 1.5rem;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            cursor: pointer;
+            color: #6b7280;
+        }
+        
+        .tab-button:hover {
+            color: #374151;
+        }
+        
+        .tab-button.active {
+            border-bottom-color: #3b82f6;
+            color: #3b82f6;
+        }
+        
+        .metric-card {
+            background: white;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        body.dark-mode {
+            background-color: #1f2937;
+            color: #f3f4f6;
+        }
+        
+        body.dark-mode .metric-card {
+            background: #374151;
+            color: #f3f4f6;
+        }
+        
+        body.dark-mode aside .metric-card {
+            background: #374151;
+            border: 1px solid #4b5563;
+        }
+        
+        body.dark-mode aside button:hover,
+        body.dark-mode aside a:hover {
+            background: #4b5563;
+        }
+        
+        body.dark-mode aside .text-gray-600 {
+            color: #9ca3af;
+        }
+        
+        body.dark-mode aside .text-gray-500 {
+            color: #9ca3af;
+        }
+        
+        body.dark-mode aside h3 {
+            color: #d1d5db;
+        }
+        
+        body.dark-mode .tab-button {
+            color: #9ca3af;
+        }
+        
+        body.dark-mode .tab-button:hover {
+            color: #e5e7eb;
+        }
+        
+        body.dark-mode .tab-button.active {
+            color: #60a5fa;
+        }
+        
+        .progress-bar {
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+        
+        body.dark-mode .progress-bar {
+            background: #4b5563;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            transition: width 0.5s ease;
+            border-radius: 4px;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .alert {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .alert-success {
+            background-color: #d1fae5;
+            color: #065f46;
+            border: 1px solid #6ee7b7;
+        }
+        
+        .alert-error {
+            background-color: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+        
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            transition: background-color 0.2s;
+        }
+        
+        .btn-primary:hover {
+            background-color: #2563eb;
+        }
+        
+        .btn-secondary {
+            background-color: white;
+            color: #374151;
+            padding: 0.5rem 1rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            transition: all 0.2s;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #f9fafb;
+        }
+        
+        body.dark-mode .btn-secondary {
+            background-color: #4b5563;
+            color: #e5e7eb;
+            border-color: #6b7280;
+        }
+        
+        body.dark-mode .btn-secondary:hover {
+            background-color: #6b7280;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50">
+    
+    <!-- Top Bar -->
+    <header class="bg-white border-b sticky top-0 z-30">
+        <div class="px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center">
+                        <span class="font-bold text-white text-sm">SJ</span>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-900">Forecasting & Pacing Dashboard</h1>
+                        <p class="text-sm text-gray-500 mt-1">
+                            Month: <span class="font-medium" id="currentMonth">--</span> • 
+                            Day <span class="font-medium" id="currentDayOfMonth">--</span> of <span id="totalDaysInMonth">--</span> • 
+                            <span class="inline-flex items-center">
+                                <span class="status-dot mr-1" id="statusDot"></span>
+                                <span class="font-medium" id="dataSource">Loading...</span>
+                            </span>
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="refreshBtn" class="btn-secondary">
+                        <i class="fas fa-sync-alt mr-2"></i>Refresh
+                    </button>
+                    <a href="/" class="btn-secondary">
+                        <i class="fas fa-chart-bar mr-2"></i>Performance
+                    </a>
+                    <a href="/campaign-mapping" class="btn-secondary">
+                        <i class="fas fa-sitemap mr-2"></i>Mapping
+                    </a>
+                    <button id="darkModeToggle" class="btn-secondary">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+    
+    <div class="container-fluid mx-auto p-6">
+        <div class="flex gap-6">
+            <!-- Sidebar -->
+            <aside class="w-64 flex-shrink-0">
+                <div class="metric-card sticky top-24">
+                    <!-- Date Range Filters -->
+                    <div class="mb-6">
+                        <h3 class="text-xs font-semibold uppercase text-gray-500 mb-3">Date Range</h3>
+                        <div class="space-y-2">
+                            <button class="w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 transition" id="currentMonthBtn">
+                                <i class="fas fa-calendar-day mr-2"></i>Current Month
+                            </button>
+                            <button class="w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 transition" id="lastMonthBtn">
+                                <i class="fas fa-calendar-alt mr-2"></i>Last Month
+                            </button>
+                            <button class="w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 transition" id="customRangeBtn">
+                                <i class="fas fa-calendar-week mr-2"></i>Custom Range
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Quick Stats -->
+                    <div class="mb-6">
+                        <h3 class="text-xs font-semibold uppercase text-gray-500 mb-3">Quick Stats</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Days Elapsed</span>
+                                <span class="font-semibold" id="daysElapsed">--</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Days Remaining</span>
+                                <span class="font-semibold" id="daysRemaining">--</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Month Progress</span>
+                                <span class="font-semibold" id="monthProgress">--%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                <div class="bg-blue-500 h-2 rounded-full transition-all duration-500" id="monthProgressBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="mb-6">
+                        <h3 class="text-xs font-semibold uppercase text-gray-500 mb-3">Data Filters</h3>
+                        <div class="space-y-2">
+                            <label class="flex items-center text-sm">
+                                <input type="checkbox" id="includeSpam" class="mr-2">
+                                <span>Include Spam</span>
+                            </label>
+                            <label class="flex items-center text-sm">
+                                <input type="checkbox" id="includeAbandoned" class="mr-2">
+                                <span>Include Abandoned</span>
+                            </label>
+                            <label class="flex items-center text-sm">
+                                <input type="checkbox" id="includeDuplicate" class="mr-2">
+                                <span>Include Duplicate</span>
+                            </label>
+                        </div>
+                        <button id="applyFilters" class="btn-primary w-full mt-3 text-sm">
+                            <i class="fas fa-filter mr-2"></i>Apply Filters
+                        </button>
+                    </div>
+
+                    <!-- Navigation -->
+                    <div>
+                        <h3 class="text-xs font-semibold uppercase text-gray-500 mb-3">Navigation</h3>
+                        <div class="space-y-2">
+                            <a href="/" class="block w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 transition">
+                                <i class="fas fa-chart-bar mr-2"></i>Performance Dashboard
+                            </a>
+                            <a href="/current-month-performance" class="block w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 transition">
+                                <i class="fas fa-calendar-day mr-2"></i>Daily Performance
+                            </a>
+                            <a href="/campaign-mapping" class="block w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 transition">
+                                <i class="fas fa-sitemap mr-2"></i>Campaign Mapping
+                            </a>
+                            <a href="/comparison-dashboard" class="block w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 transition">
+                                <i class="fas fa-balance-scale mr-2"></i>Comparison
+                            </a>
+                            <a href="/annual-analytics" class="block w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 transition">
+                                <i class="fas fa-chart-line mr-2"></i>Annual Analytics
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="flex-1 min-w-0">
+                <!-- Alert Container -->
+                <div id="alertContainer"></div>
+                
+                <!-- Tabs -->
+                <div class="flex border-b border-gray-200 mb-6">
+                    <button class="tab-button active" data-tab="pacing">
+                        <i class="fas fa-tachometer-alt mr-2"></i>Pacing Overview
+                    </button>
+                    <button class="tab-button" data-tab="projections">
+                        <i class="fas fa-chart-line mr-2"></i>Projections
+                    </button>
+                    <button class="tab-button" data-tab="settings">
+                        <i class="fas fa-cog mr-2"></i>Settings
+                    </button>
+                </div>
+
+                <!-- Loading Spinner -->
+                <div id="loadingSpinner" class="flex justify-center items-center py-12" style="display: none;">
+                    <div class="loading-spinner"></div>
+                </div>
+
+                <!-- Pacing Overview Tab -->
+                <div id="pacing" class="tab-content active">
+                    <!-- Overall Pacing Summary -->
+                    <div class="metric-card mb-6">
+                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Overall Month Pacing</h2>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <!-- Spend Pacing -->
+                            <div>
+                                <div class="text-xs font-medium uppercase text-gray-500 mb-2">Spend Pacing</div>
+                                <div class="text-2xl font-bold text-gray-900">
+                                    <span id="totalActualSpend">$0</span>
+                                </div>
+                                <div class="text-sm text-gray-500 mt-1">
+                                    of <span id="totalTargetSpend">$0</span> target
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill bg-blue-500" id="spendProgressBar"></div>
+                                </div>
+                                <div class="text-xs mt-2 text-gray-600">
+                                    <span id="spendProgress">0%</span> • 
+                                    <span id="spendPacingStatus">Calculating...</span>
+                                </div>
+                            </div>
+
+                            <!-- Leads Pacing -->
+                            <div>
+                                <div class="text-xs font-medium uppercase text-gray-500 mb-2">Leads Pacing</div>
+                                <div class="text-2xl font-bold text-gray-900">
+                                    <span id="totalActualLeads">0</span>
+                                </div>
+                                <div class="text-sm text-gray-500 mt-1">
+                                    of <span id="totalTargetLeads">0</span> target
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill bg-green-500" id="leadsProgressBar"></div>
+                                </div>
+                                <div class="text-xs mt-2 text-gray-600">
+                                    <span id="leadsProgress">0%</span> • 
+                                    <span id="leadsPacingStatus">Calculating...</span>
+                                </div>
+                            </div>
+
+                            <!-- Cases Pacing -->
+                            <div>
+                                <div class="text-xs font-medium uppercase text-gray-500 mb-2">Cases Pacing</div>
+                                <div class="text-2xl font-bold text-gray-900">
+                                    <span id="totalActualCases">0</span>
+                                </div>
+                                <div class="text-sm text-gray-500 mt-1">
+                                    of <span id="totalTargetCases">0</span> target
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill bg-purple-500" id="casesProgressBar"></div>
+                                </div>
+                                <div class="text-xs mt-2 text-gray-600">
+                                    <span id="casesProgress">0%</span> • 
+                                    <span id="casesPacingStatus">Calculating...</span>
+                                </div>
+                            </div>
+
+                            <!-- Retainers Pacing -->
+                            <div>
+                                <div class="text-xs font-medium uppercase text-gray-500 mb-2">Retainers Pacing</div>
+                                <div class="text-2xl font-bold text-gray-900">
+                                    <span id="totalActualRetainers">0</span>
+                                </div>
+                                <div class="text-sm text-gray-500 mt-1">
+                                    of <span id="totalTargetRetainers">0</span> target
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill bg-amber-500" id="retainersProgressBar"></div>
+                                </div>
+                                <div class="text-xs mt-2 text-gray-600">
+                                    <span id="retainersProgress">0%</span> • 
+                                    <span id="retainersPacingStatus">Calculating...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <!-- State Performance Chart -->
+                        <div class="metric-card">
+                            <h3 class="text-md font-semibold text-gray-900 mb-4">State Performance</h3>
+                            <div id="statePacingChart" style="min-height: 350px;"></div>
+                        </div>
+
+                        <!-- Daily Trend Chart -->
+                        <div class="metric-card">
+                            <h3 class="text-md font-semibold text-gray-900 mb-4">Monthly Trend</h3>
+                            <div id="dailyTrendChart" style="min-height: 350px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Recommendations -->
+                    <div class="metric-card">
+                        <h3 class="text-md font-semibold text-gray-900 mb-4">
+                            <i class="fas fa-lightbulb text-amber-500 mr-2"></i>Recommendations
+                        </h3>
+                        <div id="recommendationsList" class="space-y-3">
+                            <p class="text-gray-500">Loading recommendations...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Projections Tab -->
+                <div id="projections" class="tab-content">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Month-End Projections -->
+                        <div class="metric-card">
+                            <h3 class="text-md font-semibold text-gray-900 mb-4">Month-End Projections</h3>
+                            <div id="projectionDetails" class="space-y-4">
+                                <p class="text-gray-500">Loading projections...</p>
+                            </div>
+                        </div>
+
+                        <!-- Required Daily Rates -->
+                        <div class="metric-card">
+                            <h3 class="text-md font-semibold text-gray-900 mb-4">Required Daily Rates to Hit Target</h3>
+                            <div id="requiredRates" class="space-y-4">
+                                <p class="text-gray-500">Loading required rates...</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- State-by-State Projections -->
+                    <div class="metric-card mt-6">
+                        <h3 class="text-md font-semibold text-gray-900 mb-4">State-by-State Analysis</h3>
+                        <div id="stateAnalysis" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <p class="text-gray-500 col-span-4">Loading state analysis...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Tab -->
+                <div id="settings" class="tab-content">
+                    <div class="metric-card">
+                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Forecast Settings</h2>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <!-- CA Settings -->
+                            <div class="space-y-4">
+                                <h4 class="font-medium text-gray-700 border-b pb-2">California</h4>
+                                <div>
+                                    <label class="text-xs text-gray-500">Monthly Spend Target</label>
+                                    <input type="number" class="w-full border rounded px-3 py-2 mt-1" id="ca_spend_target" />
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500">Monthly Leads Target</label>
+                                    <input type="number" class="w-full border rounded px-3 py-2 mt-1" id="ca_leads_target" />
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500">Monthly Retainers Target</label>
+                                    <input type="number" class="w-full border rounded px-3 py-2 mt-1" id="ca_retainers_target" />
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500">Target CPL</label>
+                                    <input type="number" class="w-full border rounded px-3 py-2 mt-1" id="ca_cpl_target" />
+                                </div>
+                            </div>
+
+                            <!-- AZ Settings -->
+                            <div class="space-y-4">
+                                <h4 class="font-medium text-gray-700 border-b pb-2">Arizona</h4>
+                                <div>
+                                    <label class="text-xs text-gray-500">Monthly Spend Target</label>
+                                    <input type="number" class="w-full border rounded px-3 py-2 mt-1" id="az_spend_target" />
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500">Monthly Leads Target</label>
+                                    <input type="number" class="w-full border rounded px-3 py-2 mt-1" id="az_leads_target" />
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500">Monthly Retainers Target</label>
+                                    <input type="number" class="w-full border rounded px-3 py-2 mt-1" id="az_retainers_target" />
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500">Target CPL</label>
+                                    <input type="number" class="w-full border rounded px-3 py-2 mt-1" id="az_cpl_target" />
+                                </div>
+                            </div>
+
+                            <!-- GA Settings -->
+                            <div class="space-y-4">
+                                <h4 class="font-medium text-gray-700 border-b pb-2">Georgia</h4>
+                                <div>
+                                    <label class="text-xs text-gray-500">Monthly Spend Target</label>
+                                    <input type="number" class="w-full border rounded px-3 py-2 mt-1" id="ga_spend_target" />
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500">Monthly Leads Target</label>
+                                    <input type="number" class="w-full border rounded px-3 py-2 mt-1" id="ga_leads_target" />
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500">Monthly Retainers Target</label>
+                                    <input type="number" class="w-full border rounded px-3 py-2 mt-1" id="ga_retainers_target" />
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500">Target CPL</label>
+                                    <input type="number" class="w-full border rounded px-3 py-2 mt-1" id="ga_cpl_target" />
+                                </div>
+                            </div>
+
+                            <!-- TX Settings -->
+                            <div class="space-y-4">
+                                <h4 class="font-medium text-gray-700 border-b pb-2">Texas</h4>
+                                <div>
+                                    <label class="text-xs text-gray-500">Monthly Spend Target</label>
+                                    <input type="number" class="w-full border rounded px-3 py-2 mt-1" id="tx_spend_target" />
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500">Monthly Leads Target</label>
+                                    <input type="number" class="w-full border rounded px-3 py-2 mt-1" id="tx_leads_target" />
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500">Monthly Retainers Target</label>
+                                    <input type="number" class="w-full border rounded px-3 py-2 mt-1" id="tx_retainers_target" />
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500">Target CPL</label>
+                                    <input type="number" class="w-full border rounded px-3 py-2 mt-1" id="tx_cpl_target" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 flex justify-end space-x-3 border-t pt-4">
+                            <button id="resetSettings" class="btn-secondary">
+                                <i class="fas fa-undo mr-2"></i>Reset to Defaults
+                            </button>
+                            <button id="saveSettings" class="btn-primary">
+                                <i class="fas fa-save mr-2"></i>Save Settings
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+    $(document).ready(function() {
+        // Global variables
+        let pacingData = null;
+        let projectionData = null;
+        let forecastSettings = null;
+        let charts = {};
+        let darkMode = localStorage.getItem('darkMode') === 'true';
+
+        // Initialize dashboard
+        init();
+
+        function init() {
+            console.log('Initializing Forecasting Dashboard');
+            
+            // Apply dark mode if saved
+            if (darkMode) {
+                $('body').addClass('dark-mode');
+                $('#darkModeToggle i').removeClass('fa-moon').addClass('fa-sun');
+            }
+            
+            // Set up date display
+            updateDateDisplay();
+            
+            // Load all data
+            loadAllData();
+            
+            // Set up event handlers
+            setupEventHandlers();
+            
+            // Set up auto-refresh (every 5 minutes)
+            setInterval(loadAllData, 300000);
+        }
+
+        function updateDateDisplay() {
+            const now = new Date();
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                              'July', 'August', 'September', 'October', 'November', 'December'];
+            
+            $('#currentMonth').text(monthNames[now.getMonth()] + ' ' + now.getFullYear());
+            $('#currentDayOfMonth').text(now.getDate());
+            $('#totalDaysInMonth').text(new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate());
+        }
+
+        function setupEventHandlers() {
+            // Tab switching
+            $('.tab-button').on('click', function() {
+                const tabName = $(this).data('tab');
+                
+                // Update button states
+                $('.tab-button').removeClass('active');
+                $(this).addClass('active');
+                
+                // Show/hide content
+                $('.tab-content').removeClass('active');
+                $('#' + tabName).addClass('active');
+            });
+
+            // Dark mode toggle
+            $('#darkModeToggle').on('click', function() {
+                darkMode = !darkMode;
+                $('body').toggleClass('dark-mode');
+                $(this).find('i').toggleClass('fa-moon fa-sun');
+                localStorage.setItem('darkMode', darkMode);
+                
+                // Update charts for dark mode
+                if (charts.statePacing || charts.dailyTrend) {
+                    updateCharts();
+                }
+            });
+
+            // Refresh button
+            $('#refreshBtn').on('click', function() {
+                $(this).find('i').addClass('fa-spin');
+                loadAllData().always(() => {
+                    $(this).find('i').removeClass('fa-spin');
+                });
+            });
+
+            // Save settings button
+            $('#saveSettings').on('click', saveSettings);
+            
+            // Reset settings button
+            $('#resetSettings').on('click', resetSettings);
+            
+            // Sidebar date range buttons
+            $('#currentMonthBtn').on('click', function() {
+                setDateRange('current-month');
+            });
+            
+            $('#lastMonthBtn').on('click', function() {
+                setDateRange('last-month');
+            });
+            
+            $('#customRangeBtn').on('click', function() {
+                // You could implement a date picker modal here
+                showAlert('Custom date range picker coming soon', 'info');
+            });
+            
+            // Apply filters button
+            $('#applyFilters').on('click', function() {
+                applyFilters();
+            });
+        }
+        
+        function updateSidebarStats() {
+            if (!projectionData) return;
+            
+            const metrics = projectionData.time_metrics;
+            $('#daysElapsed').text(metrics.days_elapsed);
+            $('#daysRemaining').text(metrics.days_remaining);
+            $('#monthProgress').text(metrics.percent_complete.toFixed(1) + '%');
+            $('#monthProgressBar').css('width', metrics.percent_complete + '%');
+        }
+        
+        function setDateRange(range) {
+            // This would modify your API calls to use different date ranges
+            // For now, just show a message
+            showAlert(`Date range changed to: ${range}`, 'info');
+            
+            // You could store the selected range and use it in API calls
+            localStorage.setItem('selectedDateRange', range);
+            
+            // Reload data with new range
+            loadAllData();
+        }
+        
+        function applyFilters() {
+            const filters = {
+                includeSpam: $('#includeSpam').is(':checked'),
+                includeAbandoned: $('#includeAbandoned').is(':checked'),
+                includeDuplicate: $('#includeDuplicate').is(':checked')
+            };
+            
+            // Store filters
+            localStorage.setItem('forecastFilters', JSON.stringify(filters));
+            
+            // Reload with new filters
+            loadAllData();
+        }
+
+        function loadAllData() {
+            $('#loadingSpinner').show();
+            
+            // Load data in parallel
+            return $.when(
+                loadPacingData(),
+                loadProjections(),
+                loadForecastSettings()
+            ).done(function() {
+                $('#loadingSpinner').hide();
+                updateDashboard();
+            }).fail(function(error) {
+                $('#loadingSpinner').hide();
+                console.error('Error loading data:', error);
+                showAlert('Failed to load dashboard data', 'error');
+            });
+        }
+
+        function loadPacingData() {
+            // Get stored filters or use defaults
+            const storedFilters = localStorage.getItem('forecastFilters');
+            const filters = storedFilters ? JSON.parse(storedFilters) : {
+                includeSpam: false,
+                includeAbandoned: false,
+                includeDuplicate: false
+            };
+            
+            // Set checkbox states
+            $('#includeSpam').prop('checked', filters.includeSpam);
+            $('#includeAbandoned').prop('checked', filters.includeAbandoned);
+            $('#includeDuplicate').prop('checked', filters.includeDuplicate);
+            
+            return $.ajax({
+                url: '/api/forecast-pacing',
+                method: 'GET',
+                data: {
+                    include_spam: filters.includeSpam,
+                    include_abandoned: filters.includeAbandoned,
+                    include_duplicate: filters.includeDuplicate
+                }
+            }).done(function(data) {
+                pacingData = data;
+                console.log('Pacing data loaded:', data);
+                updateDataSource();
+                updateSidebarStats();
+            });
+        }
+
+        function loadProjections() {
+            return $.ajax({
+                url: '/api/forecast-projections',
+                method: 'GET'
+            }).done(function(data) {
+                projectionData = data;
+                console.log('Projection data loaded:', data);
+                updateSidebarStats();
+            });
+        }
+
+        function loadForecastSettings() {
+            return $.ajax({
+                url: '/api/forecast-settings',
+                method: 'GET'
+            }).done(function(data) {
+                forecastSettings = data;
+                console.log('Settings loaded:', data);
+                populateSettings();
+            });
+        }
+
+        function updateDataSource() {
+            if (!pacingData) return;
+            
+            const isLive = pacingData.totals && pacingData.totals.spend > 0;
+            $('#dataSource').text(isLive ? 'Live Data' : 'Demo Data');
+            $('#statusDot').removeClass('bg-green-500 bg-amber-500')
+                          .addClass(isLive ? 'bg-green-500' : 'bg-amber-500');
+        }
+
+        function updateDashboard() {
+            if (!pacingData || !projectionData || !forecastSettings) {
+                console.log('Waiting for all data to load...');
+                return;
+            }
+
+            updatePacingOverview();
+            updateCharts();
+            updateRecommendations();
+            updateProjections();
+            updateStateAnalysis();
+        }
+
+        function updatePacingOverview() {
+            const totals = pacingData.totals || {};
+            const targets = calculateTotalTargets();
+            const timePercent = projectionData.time_metrics.percent_complete;
+            
+            // Update spend
+            $('#totalActualSpend').text(formatCurrency(totals.spend || 0));
+            $('#totalTargetSpend').text(formatCurrency(targets.spend));
+            const spendProgress = targets.spend > 0 ? (totals.spend / targets.spend * 100) : 0;
+            $('#spendProgress').text(spendProgress.toFixed(1) + '%');
+            $('#spendProgressBar').css('width', Math.min(spendProgress, 100) + '%');
+            updatePacingStatus('spend', spendProgress, timePercent);
+            
+            // Update leads
+            $('#totalActualLeads').text(formatNumber(totals.leads || 0));
+            $('#totalTargetLeads').text(formatNumber(targets.leads));
+            const leadsProgress = targets.leads > 0 ? (totals.leads / targets.leads * 100) : 0;
+            $('#leadsProgress').text(leadsProgress.toFixed(1) + '%');
+            $('#leadsProgressBar').css('width', Math.min(leadsProgress, 100) + '%');
+            updatePacingStatus('leads', leadsProgress, timePercent);
+            
+            // Update cases
+            $('#totalActualCases').text(formatNumber(totals.cases || 0));
+            $('#totalTargetCases').text(formatNumber(targets.cases));
+            const casesProgress = targets.cases > 0 ? (totals.cases / targets.cases * 100) : 0;
+            $('#casesProgress').text(casesProgress.toFixed(1) + '%');
+            $('#casesProgressBar').css('width', Math.min(casesProgress, 100) + '%');
+            updatePacingStatus('cases', casesProgress, timePercent);
+            
+            // Update retainers
+            $('#totalActualRetainers').text(formatNumber(totals.retainers || 0));
+            $('#totalTargetRetainers').text(formatNumber(targets.retainers));
+            const retainersProgress = targets.retainers > 0 ? (totals.retainers / targets.retainers * 100) : 0;
+            $('#retainersProgress').text(retainersProgress.toFixed(1) + '%');
+            $('#retainersProgressBar').css('width', Math.min(retainersProgress, 100) + '%');
+            updatePacingStatus('retainers', retainersProgress, timePercent);
+        }
+
+        function calculateTotalTargets() {
+            const targets = forecastSettings.targets;
+            return {
+                spend: Object.values(targets).reduce((sum, t) => sum + t.spend, 0),
+                leads: Object.values(targets).reduce((sum, t) => sum + t.leads, 0),
+                cases: Object.values(targets).reduce((sum, t) => sum + t.cases, 0),
+                retainers: Object.values(targets).reduce((sum, t) => sum + t.retainers, 0)
+            };
+        }
+
+        function updatePacingStatus(metric, progress, timePercent) {
+            const diff = progress - timePercent;
+            let status = 'On Track';
+            let colorClass = 'text-green-600';
+            
+            if (Math.abs(diff) > 5) {
+                if (diff > 0) {
+                    status = `${Math.abs(diff).toFixed(1)}% Ahead`;
+                    colorClass = 'text-blue-600';
+                } else {
+                    status = `${Math.abs(diff).toFixed(1)}% Behind`;
+                    colorClass = 'text-red-600';
+                }
+            }
+            
+            $(`#${metric}PacingStatus`).text(status)
+                .removeClass('text-green-600 text-red-600 text-blue-600')
+                .addClass(colorClass);
+        }
+
+        function updateCharts() {
+            if (!pacingData || !forecastSettings || !projectionData) return;
+
+            createStatePacingChart();
+            createDailyTrendChart();
+        }
+
+        function createStatePacingChart() {
+            if (charts.statePacing) {
+                charts.statePacing.destroy();
+            }
+            
+            const options = {
+                series: [{
+                    name: 'Actual Spend',
+                    data: [
+                        Math.round(pacingData.states.CA.spend || 0),
+                        Math.round(pacingData.states.AZ.spend || 0),
+                        Math.round(pacingData.states.GA.spend || 0),
+                        Math.round(pacingData.states.TX.spend || 0)
+                    ]
+                }, {
+                    name: 'Prorated Target',
+                    data: [
+                        Math.round((forecastSettings.targets.CA.spend * projectionData.time_metrics.percent_complete / 100) || 0),
+                        Math.round((forecastSettings.targets.AZ.spend * projectionData.time_metrics.percent_complete / 100) || 0),
+                        Math.round((forecastSettings.targets.GA.spend * projectionData.time_metrics.percent_complete / 100) || 0),
+                        Math.round((forecastSettings.targets.TX.spend * projectionData.time_metrics.percent_complete / 100) || 0)
+                    ]
+                }],
+                chart: {
+                    type: 'bar',
+                    height: 350,
+                    toolbar: { show: false },
+                    background: 'transparent'
+                },
+                plotOptions: {
+                    bar: {
+                        horizontal: false,
+                        columnWidth: '55%',
+                        endingShape: 'rounded'
+                    }
+                },
+                dataLabels: { enabled: false },
+                stroke: {
+                    show: true,
+                    width: 2,
+                    colors: ['transparent']
+                },
+                xaxis: {
+                    categories: ['California', 'Arizona', 'Georgia', 'Texas'],
+                    labels: {
+                        style: { colors: darkMode ? '#9ca3af' : '#4b5563' }
+                    }
+                },
+                yaxis: {
+                    title: {
+                        text: 'Spend ($)',
+                        style: { color: darkMode ? '#9ca3af' : '#4b5563' }
+                    },
+                    labels: {
+                        style: { colors: darkMode ? '#9ca3af' : '#4b5563' },
+                        formatter: function(val) {
+                            if (val >= 1000000) return '$' + (val / 1000000).toFixed(1) + 'M';
+                            if (val >= 1000) return '$' + (val / 1000).toFixed(0) + 'K';
+                            return '$' + val;
+                        }
+                    }
+                },
+                fill: {
+                    opacity: 1,
+                    colors: ['#3B82F6', '#9CA3AF']
+                },
+                tooltip: {
+                    theme: darkMode ? 'dark' : 'light',
+                    y: {
+                        formatter: function(val) {
+                            return '$' + val.toLocaleString();
+                        }
+                    }
+                },
+                colors: ['#3B82F6', '#9CA3AF'],
+                legend: {
+                    position: 'top',
+                    horizontalAlign: 'left',
+                    labels: {
+                        colors: darkMode ? '#9ca3af' : '#4b5563'
+                    }
+                },
+                grid: {
+                    borderColor: darkMode ? '#374151' : '#e5e7eb'
+                }
+            };
+
+            charts.statePacing = new ApexCharts(document.querySelector("#statePacingChart"), options);
+            charts.statePacing.render();
+        }
+
+        function createDailyTrendChart() {
+            if (charts.dailyTrend) {
+                charts.dailyTrend.destroy();
+            }
+            
+            const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+            const currentDay = new Date().getDate();
+            const categories = [];
+            const actualData = [];
+            const targetData = [];
+            
+            const totalTargetSpend = calculateTotalTargets().spend;
+            const dailyTarget = totalTargetSpend / daysInMonth;
+            const dailyActual = pacingData.totals.spend / currentDay;
+            
+            for (let i = 1; i <= daysInMonth; i++) {
+                categories.push(i.toString());
+                
+                if (i <= currentDay) {
+                    actualData.push(Math.round(dailyActual * i));
+                } else {
+                    actualData.push(null);
+                }
+                
+                targetData.push(Math.round(dailyTarget * i));
+            }
+            
+            const options = {
+                series: [{
+                    name: 'Actual Spend',
+                    data: actualData
+                }, {
+                    name: 'Target Pace',
+                    data: targetData
+                }],
+                chart: {
+                    height: 350,
+                    type: 'line',
+                    zoom: { enabled: false },
+                    toolbar: { show: false },
+                    background: 'transparent'
+                },
+                dataLabels: { enabled: false },
+                stroke: {
+                    curve: 'smooth',
+                    width: [3, 2],
+                    dashArray: [0, 5]
+                },
+                colors: ['#3B82F6', '#9CA3AF'],
+                xaxis: {
+                    categories: categories,
+                    title: {
+                        text: 'Day of Month',
+                        style: { color: darkMode ? '#9ca3af' : '#4b5563' }
+                    },
+                    labels: {
+                        style: { colors: darkMode ? '#9ca3af' : '#4b5563' },
+                        hideOverlappingLabels: true,
+                        formatter: function(val, index) {
+                            if (index % 5 === 0 || index === categories.length - 1) return val;
+                            return '';
+                        }
+                    }
+                },
+                yaxis: {
+                    title: {
+                        text: 'Cumulative Spend',
+                        style: { color: darkMode ? '#9ca3af' : '#4b5563' }
+                    },
+                    labels: {
+                        style: { colors: darkMode ? '#9ca3af' : '#4b5563' },
+                        formatter: function(val) {
+                            if (val >= 1000000) return '$' + (val / 1000000).toFixed(1) + 'M';
+                            if (val >= 1000) return '$' + (val / 1000).toFixed(0) + 'K';
+                            return '$' + val;
+                        }
+                    }
+                },
+                tooltip: {
+                    theme: darkMode ? 'dark' : 'light',
+                    shared: true,
+                    intersect: false,
+                    y: {
+                        formatter: function(val) {
+                            if (val === null) return 'N/A';
+                            return '$' + val.toLocaleString();
+                        }
+                    }
+                },
+                legend: {
+                    position: 'top',
+                    horizontalAlign: 'left',
+                    labels: {
+                        colors: darkMode ? '#9ca3af' : '#4b5563'
+                    }
+                },
+                grid: {
+                    borderColor: darkMode ? '#374151' : '#e5e7eb'
+                }
+            };
+
+            charts.dailyTrend = new ApexCharts(document.querySelector("#dailyTrendChart"), options);
+            charts.dailyTrend.render();
+        }
+
+        function updateRecommendations() {
+            const recommendations = projectionData.recommendations || [];
+            const $list = $('#recommendationsList');
+            
+            if (recommendations.length === 0) {
+                $list.html('<p class="text-gray-500">All metrics are on track. No recommendations at this time.</p>');
+                return;
+            }
+            
+            let html = '';
+            recommendations.forEach(rec => {
+                const iconClass = rec.severity === 'high' ? 'fa-exclamation-triangle text-red-500' : 
+                                 rec.severity === 'medium' ? 'fa-exclamation-circle text-amber-500' : 
+                                 'fa-info-circle text-blue-500';
+                html += `
+                    <div class="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+                        <i class="fas ${iconClass} mt-0.5"></i>
+                        <span class="text-sm text-gray-700">${rec.message}</span>
+                    </div>
+                `;
+            });
+            
+            $list.html(html);
+        }
+
+        function updateProjections() {
+            const projections = projectionData.totals.projected;
+            const current = projectionData.totals.current;
+            const targets = projectionData.totals.target;
+            const daysRemaining = projectionData.time_metrics.days_remaining;
+            
+            // Update projection details
+            let projectionHtml = `
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
+                        <span class="text-sm text-gray-600">Projected Spend</span>
+                        <span class="font-semibold">${formatCurrency(projections.spend)}</span>
+                    </div>
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
+                        <span class="text-sm text-gray-600">Projected Leads</span>
+                        <span class="font-semibold">${formatNumber(projections.leads)}</span>
+                    </div>
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
+                        <span class="text-sm text-gray-600">Projected Cases</span>
+                        <span class="font-semibold">${formatNumber(projections.cases)}</span>
+                    </div>
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
+                        <span class="text-sm text-gray-600">Projected Retainers</span>
+                        <span class="font-semibold">${formatNumber(projections.retainers)}</span>
+                    </div>
+                </div>
+            `;
+            $('#projectionDetails').html(projectionHtml);
+            
+            // Update required rates
+            let ratesHtml = `
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center p-3 bg-blue-50 rounded">
+                        <span class="text-sm text-gray-600">Daily Spend Needed</span>
+                        <span class="font-semibold text-blue-600">
+                            ${formatCurrency((targets.spend - current.spend) / Math.max(daysRemaining, 1))}
+                        </span>
+                    </div>
+                    <div class="flex justify-between items-center p-3 bg-green-50 rounded">
+                        <span class="text-sm text-gray-600">Daily Leads Needed</span>
+                        <span class="font-semibold text-green-600">
+                            ${((targets.leads - current.leads) / Math.max(daysRemaining, 1)).toFixed(1)}
+                        </span>
+                    </div>
+                    <div class="flex justify-between items-center p-3 bg-purple-50 rounded">
+                        <span class="text-sm text-gray-600">Daily Cases Needed</span>
+                        <span class="font-semibold text-purple-600">
+                            ${((targets.cases - current.cases) / Math.max(daysRemaining, 1)).toFixed(1)}
+                        </span>
+                    </div>
+                    <div class="flex justify-between items-center p-3 bg-amber-50 rounded">
+                        <span class="text-sm text-gray-600">Daily Retainers Needed</span>
+                        <span class="font-semibold text-amber-600">
+                            ${((targets.retainers - current.retainers) / Math.max(daysRemaining, 1)).toFixed(1)}
+                        </span>
+                    </div>
+                    <div class="text-xs text-gray-500 text-center mt-4">
+                        ${daysRemaining} days remaining in month
+                    </div>
+                </div>
+            `;
+            $('#requiredRates').html(ratesHtml);
+        }
+
+        function updateStateAnalysis() {
+            const states = ['CA', 'AZ', 'GA', 'TX'];
+            const stateNames = {
+                'CA': 'California',
+                'AZ': 'Arizona',
+                'GA': 'Georgia',
+                'TX': 'Texas'
+            };
+            
+            let html = '';
+            states.forEach(state => {
+                const stateData = projectionData.states[state];
+                const statusColor = stateData.status === 'on_track' ? 'text-green-600' :
+                                  stateData.status === 'ahead' ? 'text-blue-600' : 'text-red-600';
+                
+                html += `
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <h4 class="font-medium text-gray-900 mb-3">${stateNames[state]}</h4>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Status</span>
+                                <span class="font-medium ${statusColor}">${stateData.status.replace('_', ' ').toUpperCase()}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Current CPL</span>
+                                <span>${formatCurrency(stateData.metrics.current_cpl)}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Conversion</span>
+                                <span>${stateData.metrics.current_conversion.toFixed(1)}%</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Variance</span>
+                                <span class="${stateData.variance_percent.spend > 0 ? 'text-blue-600' : 'text-red-600'}">
+                                    ${stateData.variance_percent.spend > 0 ? '+' : ''}${stateData.variance_percent.spend.toFixed(1)}%
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            $('#stateAnalysis').html(html);
+        }
+
+        function populateSettings() {
+            if (!forecastSettings) return;
+            
+            // Populate all state settings
+            ['ca', 'az', 'ga', 'tx'].forEach(state => {
+                const stateUpper = state.toUpperCase();
+                $(`#${state}_spend_target`).val(forecastSettings.targets[stateUpper].spend);
+                $(`#${state}_leads_target`).val(forecastSettings.targets[stateUpper].leads);
+                $(`#${state}_retainers_target`).val(forecastSettings.targets[stateUpper].retainers);
+                $(`#${state}_cpl_target`).val(forecastSettings.cpl_targets[stateUpper]);
+            });
+        }
+
+        function saveSettings() {
+            const newSettings = {
+                targets: {},
+                cpl_targets: {},
+                conversion_rates: forecastSettings.conversion_rates
+            };
+            
+            ['CA', 'AZ', 'GA', 'TX'].forEach(state => {
+                const stateLower = state.toLowerCase();
+                newSettings.targets[state] = {
+                    spend: parseInt($(`#${stateLower}_spend_target`).val()) || 0,
+                    leads: parseInt($(`#${stateLower}_leads_target`).val()) || 0,
+                    retainers: parseInt($(`#${stateLower}_retainers_target`).val()) || 0,
+                    cases: Math.round(parseInt($(`#${stateLower}_retainers_target`).val()) * 0.8) || 0
+                };
+                newSettings.cpl_targets[state] = parseInt($(`#${stateLower}_cpl_target`).val()) || 0;
+            });
+            
+            $.ajax({
+                url: '/api/forecast-settings',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(newSettings)
+            }).done(function() {
+                showAlert('Settings saved successfully', 'success');
+                forecastSettings = newSettings;
+                loadAllData();
+            }).fail(function() {
+                showAlert('Failed to save settings', 'error');
+            });
+        }
+
+        function resetSettings() {
+            if (!confirm('Reset all settings to defaults?')) return;
+            
+            const defaults = {
+                ca: { spend: 1500000, leads: 1200, retainers: 300, cpl: 1250 },
+                az: { spend: 500000, leads: 400, retainers: 100, cpl: 1250 },
+                ga: { spend: 300000, leads: 240, retainers: 60, cpl: 1250 },
+                tx: { spend: 200000, leads: 160, retainers: 40, cpl: 1250 }
+            };
+            
+            Object.keys(defaults).forEach(state => {
+                $(`#${state}_spend_target`).val(defaults[state].spend);
+                $(`#${state}_leads_target`).val(defaults[state].leads);
+                $(`#${state}_retainers_target`).val(defaults[state].retainers);
+                $(`#${state}_cpl_target`).val(defaults[state].cpl);
+            });
+        }
+
+        // Utility functions
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(value || 0);
+        }
+
+        function formatNumber(value) {
+            return Math.round(value || 0).toLocaleString();
+        }
+
+        function showAlert(message, type = 'info') {
+            const alertClass = type === 'error' ? 'alert-error' : 'alert-success';
+            const icon = type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle';
+            
+            const alertHtml = `
+                <div class="alert ${alertClass}">
+                    <i class="fas ${icon} mr-2"></i>
+                    ${message}
+                </div>
+            `;
+            
+            $('#alertContainer').html(alertHtml);
+            
+            setTimeout(() => {
+                $('#alertContainer').empty();
+            }, 5000);
+        }
+    });
+    </script>
+</body>
+</html>

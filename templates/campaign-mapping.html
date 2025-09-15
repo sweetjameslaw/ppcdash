@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sweet James - Campaign & UTM Mapping</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="min-h-screen" :class="{'dark-mode': darkMode}" x-data="mappingApp()" x-init="init()">
+    
+    <!-- Sidebar -->
+    <aside class="sidebar fixed left-0 top-0 h-full z-50" :class="{'collapsed': sidebarCollapsed}">
+        <div class="p-6 border-b border-gray-200 dark-mode:border-gray-700">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center">
+                    <span class="font-bold text-white text-sm">SJ</span>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-gray-900 dark-mode:text-white">Sweet James</h1>
+                    <p class="text-xs text-gray-500 dark-mode:text-gray-300">Campaign Mapping</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar Toggle -->
+        <div class="sidebar-toggle" @click="sidebarCollapsed = !sidebarCollapsed">
+            <i class="fas fa-chevron-left text-gray-500 text-sm" :class="{'fa-chevron-right': sidebarCollapsed}"></i>
+        </div>
+        
+        <!-- Sidebar Content -->
+        <div class="p-6 space-y-6 overflow-y-auto" style="height: calc(100% - 100px);">
+            <!-- Legend Section -->
+            <div>
+                <h3 class="text-xs font-semibold uppercase text-gray-500 dark-mode:text-gray-300 mb-3">Legend</h3>
+                <div class="space-y-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="campaign-tag"><i class="fab fa-google mr-1"></i>Campaign</span>
+                        <span class="text-xs text-gray-500 dark-mode:text-gray-400">Google Ads</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="utm-tag"><i class="fas fa-tag mr-1"></i>UTM</span>
+                        <span class="text-xs text-gray-500 dark-mode:text-gray-400">Litify UTM</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="unmapped-tag"><i class="fas fa-exclamation-triangle mr-1"></i>Unmapped</span>
+                        <span class="text-xs text-gray-500 dark-mode:text-gray-400">No bucket</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Statistics Section -->
+            <div>
+                <h3 class="text-xs font-semibold uppercase text-gray-500 dark-mode:text-gray-300 mb-3">Statistics</h3>
+                <div class="space-y-2">
+                    <div class="card p-3 rounded-md">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-gray-600 dark-mode:text-gray-400">Buckets</span>
+                            <span class="font-bold text-gray-900 dark-mode:text-white" x-text="Object.keys(buckets).length"></span>
+                        </div>
+                    </div>
+                    <div class="card p-3 rounded-md">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-gray-600 dark-mode:text-gray-400">Mapped Campaigns</span>
+                            <span class="font-bold text-blue-600 dark-mode:text-blue-400" x-text="getMappedCampaignsCount()"></span>
+                        </div>
+                    </div>
+                    <div class="card p-3 rounded-md">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-gray-600 dark-mode:text-gray-400">Mapped UTMs</span>
+                            <span class="font-bold text-purple-600 dark-mode:text-purple-400" x-text="getMappedUTMsCount()"></span>
+                        </div>
+                    </div>
+                    <div class="card p-3 rounded-md">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-gray-600 dark-mode:text-gray-400">Unmapped</span>
+                            <span class="font-bold text-orange-600 dark-mode:text-orange-400" x-text="unmappedCampaigns.length + unmappedUTMs.length"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quick Actions Section */
+            <div>
+                <h3 class="text-xs font-semibold uppercase text-gray-500 dark-mode:text-gray-300 mb-3">Quick Actions</h3>
+                <div class="space-y-2">
+                    <button @click="autoMapSimilar()" 
+                            class="btn-secondary w-full px-3 py-2 rounded-md text-sm">
+                        <i class="fas fa-magic mr-2"></i>Auto-map Similar
+                    </button>
+                    <button @click="exportMappings()" 
+                            class="btn-secondary w-full px-3 py-2 rounded-md text-sm">
+                        <i class="fas fa-download mr-2"></i>Export Mappings
+                    </button>
+                    <button @click="showImportDialog = true" 
+                            class="btn-secondary w-full px-3 py-2 rounded-md text-sm">
+                        <i class="fas fa-upload mr-2"></i>Import Mappings
+                    </button>
+                    <button @click="resetToDefaults()" 
+                            class="btn-danger w-full px-3 py-2 rounded-md text-sm">
+                        <i class="fas fa-undo mr-2"></i>Reset to Defaults
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Navigation Section -->
+            <div>
+                <h3 class="text-xs font-semibold uppercase text-gray-500 dark-mode:text-gray-300 mb-3">Navigation</h3>
+                <div class="space-y-2">
+                    <a href="/" 
+                       class="btn-secondary w-full px-3 py-2 rounded-md text-sm text-center block">
+                        <i class="fas fa-chart-bar mr-2"></i>Dashboard
+                    </a>
+                    <button @click="toggleDarkMode()" 
+                            class="btn-secondary w-full px-3 py-2 rounded-md text-sm">
+                        <i class="fas mr-2" :class="darkMode ? 'fa-sun' : 'fa-moon'"></i>
+                        <span x-text="darkMode ? 'Light Mode' : 'Dark Mode'"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="main-content" :class="{'expanded': sidebarCollapsed}">
+        <!-- Top Bar -->
+        <header class="card border-b sticky top-0 z-30">
+            <div class="px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-900 dark-mode:text-white">Campaign & UTM Mapping</h2>
+                        <p class="text-sm text-gray-500 dark-mode:text-gray-400 mt-1">
+                            Map Google Ads campaigns and Litify UTM values to performance buckets
+                        </p>
+                    </div>
+                    <!-- Live Data Status -->
+                    <div class="flex items-center space-x-4">
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500 dark-mode:text-gray-400 mb-1">Live Data Status</div>
+                            <div class="flex items-center space-x-3">
+                                <div class="flex items-center space-x-1">
+                                    <div class="status-dot" :class="apiStatus.google_ads_connected ? 'bg-green-500' : 'bg-amber-500'"></div>
+                                    <span class="text-xs font-medium text-gray-600 dark-mode:text-gray-300">Google Ads</span>
+                                </div>
+                                <div class="flex items-center space-x-1">
+                                    <div class="status-dot" :class="apiStatus.litify_connected ? 'bg-green-500' : 'bg-amber-500'"></div>
+                                    <span class="text-xs font-medium text-gray-600 dark-mode:text-gray-300">Litify</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button @click="saveMappings()" 
+                                :disabled="isSaving"
+                                class="btn-primary px-6 py-2 rounded-md">
+                            <i class="fas fa-save mr-2" :class="{'fa-spin': isSaving}"></i>
+                            <span x-text="isSaving ? 'Saving...' : 'Save All'"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <div class="p-6">
+            <!-- Unmapped Items Section -->
+            <div x-show="unmappedCampaigns.length > 0 || unmappedUTMs.length > 0" 
+                 class="card rounded-lg border-orange-200 dark-mode:border-orange-700 mb-6">
+                <div class="p-6 border-b border-gray-200 dark-mode:border-gray-700">
+                    <h3 class="text-lg font-semibold text-orange-600 dark-mode:text-orange-400">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        Unmapped Items (<span x-text="unmappedCampaigns.length + unmappedUTMs.length"></span>)
+                    </h3>
+                    <p class="text-sm text-gray-500 dark-mode:text-gray-400 mt-1">
+                        Assign these items to buckets to include them in dashboard metrics
+                    </p>
+                </div>
+                
+                <!-- Tabs for Unmapped Items -->
+                <div class="flex border-b border-gray-200 dark-mode:border-gray-700">
+                    <button @click="unmappedTab = 'campaigns'" 
+                            :class="unmappedTab === 'campaigns' ? 'border-b-2 border-blue-500 text-blue-600 dark-mode:text-blue-400' : 'text-gray-500 dark-mode:text-gray-400'"
+                            class="px-6 py-3 text-sm font-medium transition">
+                        Google Ads Campaigns (<span x-text="unmappedCampaigns.length"></span>)
+                    </button>
+                    <button @click="unmappedTab = 'utms'" 
+                            :class="unmappedTab === 'utms' ? 'border-b-2 border-blue-500 text-blue-600 dark-mode:text-blue-400' : 'text-gray-500 dark-mode:text-gray-400'"
+                            class="px-6 py-3 text-sm font-medium transition">
+                        Litify UTM Values (<span x-text="unmappedUTMs.length"></span>)
+                    </button>
+                </div>
+                
+                <div class="p-6">
+                    <!-- Unmapped Campaigns -->
+                    <div x-show="unmappedTab === 'campaigns'" class="space-y-3">
+                        <template x-for="campaign in unmappedCampaigns" :key="campaign">
+                            <div class="flex items-center justify-between p-3 card rounded-md">
+                                <span class="font-medium text-gray-900 dark-mode:text-white" x-text="campaign"></span>
+                                <select @change="assignCampaignToBucket(campaign, $event.target.value)"
+                                        class="form-input px-3 py-1 rounded-md text-sm">
+                                    <option value="">Assign to bucket...</option>
+                                    <template x-for="bucketName in Object.keys(buckets)" :key="bucketName">
+                                        <option :value="bucketName" x-text="bucketName"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </template>
+                        <div x-show="unmappedCampaigns.length === 0" class="text-center text-gray-500 dark-mode:text-gray-400 py-8">
+                            <i class="fas fa-check-circle text-3xl mb-2"></i>
+                            <p>No unmapped Google Ads campaigns</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Unmapped UTMs -->
+                    <div x-show="unmappedTab === 'utms'" class="space-y-3">
+                        <template x-for="utm in unmappedUTMs" :key="utm">
+                            <div class="flex items-center justify-between p-3 card rounded-md">
+                                <span class="font-medium text-gray-900 dark-mode:text-white" x-text="utm"></span>
+                                <select @change="assignUTMToBucket(utm, $event.target.value)"
+                                        class="form-input px-3 py-1 rounded-md text-sm">
+                                    <option value="">Assign to bucket...</option>
+                                    <template x-for="bucketName in Object.keys(buckets)" :key="bucketName">
+                                        <option :value="bucketName" x-text="bucketName"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </template>
+                        <div x-show="unmappedUTMs.length === 0" class="text-center text-gray-500 dark-mode:text-gray-400 py-8">
+                            <i class="fas fa-check-circle text-3xl mb-2"></i>
+                            <p>No unmapped UTM values</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bucket Mappings Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
+                <template x-for="(bucket, bucketName) in buckets" :key="bucketName">
+                    <div class="card rounded-lg p-6 bucket-card">
+                        <div class="bucket-header mb-4">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-lg font-semibold text-gray-900 dark-mode:text-white" x-text="bucketName"></h3>
+                                <button @click="deleteBucket(bucketName)" 
+                                        class="bucket-delete btn-danger px-2 py-1 rounded text-xs"
+                                        title="Delete bucket">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                            <div class="flex items-center space-x-2 mt-2">
+                                <span class="badge badge-info text-xs">
+                                    <span x-text="bucket.campaigns ? bucket.campaigns.length : 0"></span> campaigns
+                                </span>
+                                <span class="badge badge-secondary text-xs">
+                                    <span x-text="bucket.utms ? bucket.utms.length : 0"></span> UTMs
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <!-- Google Ads Campaigns Section -->
+                        <div class="mb-4">
+                            <div class="text-xs font-semibold text-blue-600 dark-mode:text-blue-400 mb-2">
+                                <i class="fab fa-google mr-1"></i>Google Ads Campaigns
+                            </div>
+                            <div class="space-y-1 mb-2 max-h-32 overflow-y-auto">
+                                <template x-for="(campaign, index) in (bucket.campaigns || [])" :key="bucketName + '-campaign-' + index">
+                                    <div class="flex items-center justify-between group">
+                                        <span class="campaign-tag flex-1 mr-2 truncate" x-text="campaign" :title="campaign"></span>
+                                        <button @click="removeCampaignFromBucket(bucketName, campaign)" 
+                                                class="opacity-0 group-hover:opacity-100 text-red-500 dark-mode:text-red-400 hover:text-red-600 dark-mode:hover:text-red-300 transition p-1">
+                                            <i class="fas fa-times text-xs"></i>
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+                            <input type="text" 
+                                   @keyup.enter="addCampaignToBucket(bucketName, $event.target.value); $event.target.value = ''"
+                                   placeholder="Add campaign name..." 
+                                   class="form-input w-full px-3 py-2 rounded-md text-sm">
+                        </div>
+                        
+                        <!-- UTM Values Section -->
+                        <div>
+                            <div class="text-xs font-semibold text-purple-600 dark-mode:text-purple-400 mb-2">
+                                <i class="fas fa-tag mr-1"></i>Litify UTM Values
+                            </div>
+                            <div class="space-y-1 mb-2 max-h-32 overflow-y-auto">
+                                <template x-for="(utm, index) in (bucket.utms || [])" :key="bucketName + '-utm-' + index">
+                                    <div class="flex items-center justify-between group">
+                                        <span class="utm-tag flex-1 mr-2 truncate" x-text="utm" :title="utm"></span>
+                                        <button @click="removeUTMFromBucket(bucketName, utm)" 
+                                                class="opacity-0 group-hover:opacity-100 text-red-500 dark-mode:text-red-400 hover:text-red-600 dark-mode:hover:text-red-300 transition p-1">
+                                            <i class="fas fa-times text-xs"></i>
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+                            <input type="text" 
+                                   @keyup.enter="addUTMToBucket(bucketName, $event.target.value); $event.target.value = ''"
+                                   placeholder="Add UTM value..." 
+                                   class="form-input w-full px-3 py-2 rounded-md text-sm">
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Add New Bucket -->
+            <div class="card rounded-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark-mode:text-white mb-4">Add New Bucket</h3>
+                <div class="flex space-x-4">
+                    <input type="text" 
+                           x-model="newBucketName" 
+                           @keyup.enter="addNewBucket()"
+                           placeholder="Enter bucket name (e.g., 'Texas Prospecting')" 
+                           class="form-input flex-1 px-4 py-2 rounded-md">
+                    <button @click="addNewBucket()" 
+                            :disabled="!newBucketName"
+                            class="btn-primary px-6 py-2 rounded-md">
+                        <i class="fas fa-plus mr-2"></i>Add Bucket
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Save Indicator -->
+    <div x-show="showSaveIndicator" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="transform translate-y-full"
+         x-transition:enter-end="transform translate-y-0"
+         x-transition:leave="transition ease-in duration-300"
+         x-transition:leave-start="transform translate-y-0"
+         x-transition:leave-end="transform translate-y-full"
+         class="save-indicator card rounded-xl px-6 py-3 shadow-2xl">
+        <div class="flex items-center space-x-3">
+            <i class="fas fa-check-circle text-green-500 text-xl"></i>
+            <span class="font-semibold text-gray-900 dark-mode:text-white">Mappings saved successfully!</span>
+        </div>
+    </div>
+
+    <!-- Import Dialog -->
+    <div x-show="showImportDialog" 
+         @click.away="showImportDialog = false"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="card rounded-2xl p-8 max-w-2xl w-full mx-4">
+            <h3 class="text-xl font-semibold text-gray-900 dark-mode:text-white mb-4">Import Mappings</h3>
+            <textarea x-model="importData" 
+                      placeholder="Paste your JSON mapping data here..."
+                      class="form-input w-full h-64 px-4 py-3 rounded-md text-sm font-mono"></textarea>
+            <div class="flex justify-end space-x-4 mt-4">
+                <button @click="showImportDialog = false" 
+                        class="btn-secondary px-6 py-2 rounded-md">
+                    Cancel
+                </button>
+                <button @click="importMappings()" 
+                        class="btn-primary px-6 py-2 rounded-md">
+                    Import
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function mappingApp() {
+            return {
+                buckets: {},
+                unmappedCampaigns: [],
+                unmappedUTMs: [],
+                unmappedTab: 'campaigns',
+                newBucketName: '',
+                isSaving: false,
+                showSaveIndicator: false,
+                showImportDialog: false,
+                importData: '',
+                darkMode: false,
+                sidebarCollapsed: false,
+                apiStatus: {
+                    google_ads_connected: false,
+                    litify_connected: false
+                },
+                
+                async init() {
+                    // Load preferences
+                    const savedDarkMode = localStorage.getItem('mappingDarkMode');
+                    if (savedDarkMode !== null) {
+                        this.darkMode = savedDarkMode === 'true';
+                    }
+                    
+                    const savedSidebar = localStorage.getItem('mappingSidebarCollapsed');
+                    if (savedSidebar !== null) {
+                        this.sidebarCollapsed = savedSidebar === 'true';
+                    }
+                    
+                    await this.loadMappings();
+                    await this.loadUnmappedItems();
+                    await this.checkApiStatus();
+                    
+                    // Watch for changes
+                    this.$watch('sidebarCollapsed', (value) => {
+                        localStorage.setItem('mappingSidebarCollapsed', value);
+                    });
+                },
+                
+                toggleDarkMode() {
+                    this.darkMode = !this.darkMode;
+                    localStorage.setItem('mappingDarkMode', this.darkMode);
+                },
+                
+                async checkApiStatus() {
+                    try {
+                        const response = await fetch('/api/status');
+                        const data = await response.json();
+                        this.apiStatus = data;
+                    } catch (error) {
+                        console.error('Error checking API status:', error);
+                    }
+                },
+                
+                async loadMappings() {
+                    try {
+                        const response = await fetch('/api/campaign-mapping');
+                        const campaignBuckets = await response.json();
+                        
+                        // Load UTM mappings
+                        const utmResponse = await fetch('/api/utm-mapping');
+                        const utmMappings = await utmResponse.json();
+                        
+                        // Combine both mappings into a unified structure
+                        this.buckets = {};
+                        
+                        // Initialize buckets with campaigns
+                        for (const [bucketName, campaigns] of Object.entries(campaignBuckets)) {
+                            this.buckets[bucketName] = {
+                                campaigns: Array.isArray(campaigns) ? campaigns : [],
+                                utms: []
+                            };
+                        }
+                        
+                        // Add UTM mappings to buckets
+                        for (const [utm, bucketName] of Object.entries(utmMappings)) {
+                            if (this.buckets[bucketName]) {
+                                if (!this.buckets[bucketName].utms) {
+                                    this.buckets[bucketName].utms = [];
+                                }
+                                this.buckets[bucketName].utms.push(utm);
+                            }
+                        }
+                        
+                        console.log('Loaded mappings:', this.buckets);
+                    } catch (error) {
+                        console.error('Error loading mappings:', error);
+                        // Use default structure if API fails
+                        this.buckets = this.getDefaultBuckets();
+                    }
+                },
+                
+                async loadUnmappedItems() {
+                    try {
+                        // Load unmapped items from the dashboard data
+                        const response = await fetch('/api/dashboard-data');
+                        const data = await response.json();
+                        
+                        this.unmappedCampaigns = data.unmapped_campaigns || [];
+                        this.unmappedUTMs = data.unmapped_utms || [];
+                    } catch (error) {
+                        console.error('Error loading unmapped items:', error);
+                    }
+                },
+                
+                getMappedCampaignsCount() {
+                    return Object.values(this.buckets).reduce((sum, bucket) => 
+                        sum + (bucket.campaigns ? bucket.campaigns.length : 0), 0);
+                },
+                
+                getMappedUTMsCount() {
+                    return Object.values(this.buckets).reduce((sum, bucket) => 
+                        sum + (bucket.utms ? bucket.utms.length : 0), 0);
+                },
+                
+                addCampaignToBucket(bucketName, campaign) {
+                    if (!campaign) return;
+                    
+                    if (!this.buckets[bucketName].campaigns) {
+                        this.buckets[bucketName].campaigns = [];
+                    }
+                    
+                    if (!this.buckets[bucketName].campaigns.includes(campaign)) {
+                        this.buckets[bucketName].campaigns.push(campaign);
+                        // Remove from unmapped if it exists
+                        this.unmappedCampaigns = this.unmappedCampaigns.filter(c => c !== campaign);
+                    }
+                },
+                
+                removeCampaignFromBucket(bucketName, campaign) {
+                    if (this.buckets[bucketName].campaigns) {
+                        this.buckets[bucketName].campaigns = 
+                            this.buckets[bucketName].campaigns.filter(c => c !== campaign);
+                        // Add to unmapped
+                        if (!this.unmappedCampaigns.includes(campaign)) {
+                            this.unmappedCampaigns.push(campaign);
+                        }
+                    }
+                },
+                
+                addUTMToBucket(bucketName, utm) {
+                    if (!utm) return;
+                    
+                    if (!this.buckets[bucketName].utms) {
+                        this.buckets[bucketName].utms = [];
+                    }
+                    
+                    if (!this.buckets[bucketName].utms.includes(utm)) {
+                        this.buckets[bucketName].utms.push(utm);
+                        // Remove from unmapped if it exists
+                        this.unmappedUTMs = this.unmappedUTMs.filter(u => u !== utm);
+                    }
+                },
+                
+                removeUTMFromBucket(bucketName, utm) {
+                    if (this.buckets[bucketName].utms) {
+                        this.buckets[bucketName].utms = 
+                            this.buckets[bucketName].utms.filter(u => u !== utm);
+                        // Add to unmapped
+                        if (!this.unmappedUTMs.includes(utm)) {
+                            this.unmappedUTMs.push(utm);
+                        }
+                    }
+                },
+                
+                assignCampaignToBucket(campaign, bucketName) {
+                    if (!bucketName) return;
+                    this.addCampaignToBucket(bucketName, campaign);
+                },
+                
+                assignUTMToBucket(utm, bucketName) {
+                    if (!bucketName) return;
+                    this.addUTMToBucket(bucketName, utm);
+                },
+                
+                addNewBucket() {
+                    if (!this.newBucketName) return;
+                    
+                    if (!this.buckets[this.newBucketName]) {
+                        this.buckets[this.newBucketName] = {
+                            campaigns: [],
+                            utms: []
+                        };
+                    }
+                    
+                    this.newBucketName = '';
+                },
+                
+                deleteBucket(bucketName) {
+                    if (!confirm(`Are you sure you want to delete the "${bucketName}" bucket? All campaigns and UTMs will become unmapped.`)) {
+                        return;
+                    }
+                    
+                    // Move campaigns and UTMs back to unmapped
+                    if (this.buckets[bucketName].campaigns) {
+                        this.unmappedCampaigns.push(...this.buckets[bucketName].campaigns);
+                    }
+                    if (this.buckets[bucketName].utms) {
+                        this.unmappedUTMs.push(...this.buckets[bucketName].utms);
+                    }
+                    
+                    // Delete the bucket
+                    delete this.buckets[bucketName];
+                },
+                
+                async saveMappings() {
+                    this.isSaving = true;
+                    
+                    try {
+                        // Prepare campaign buckets
+                        const campaignBuckets = {};
+                        const utmMappings = {};
+                        
+                        for (const [bucketName, bucket] of Object.entries(this.buckets)) {
+                            campaignBuckets[bucketName] = bucket.campaigns || [];
+                            
+                            // Create reverse mapping for UTMs
+                            if (bucket.utms) {
+                                for (const utm of bucket.utms) {
+                                    utmMappings[utm] = bucketName;
+                                }
+                            }
+                        }
+                        
+                        // Save campaign mappings
+                        const campaignResponse = await fetch('/api/campaign-mapping', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                action: 'update_all',
+                                buckets: campaignBuckets
+                            })
+                        });
+                        
+                        // Save UTM mappings
+                        const utmResponse = await fetch('/api/utm-mapping', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                action: 'update_all',
+                                mappings: utmMappings
+                            })
+                        });
+                        
+                        if (campaignResponse.ok && utmResponse.ok) {
+                            this.showSaveIndicator = true;
+                            setTimeout(() => {
+                                this.showSaveIndicator = false;
+                            }, 3000);
+                        }
+                    } catch (error) {
+                        console.error('Error saving mappings:', error);
+                        alert('Error saving mappings. Please try again.');
+                    } finally {
+                        this.isSaving = false;
+                    }
+                },
+                
+                async resetToDefaults() {
+                    if (!confirm('Are you sure you want to reset all mappings to defaults? This cannot be undone.')) {
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch('/api/campaign-mapping', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'reset' })
+                        });
+                        
+                        if (response.ok) {
+                            await this.loadMappings();
+                            await this.loadUnmappedItems();
+                            alert('Mappings reset to defaults successfully');
+                        }
+                    } catch (error) {
+                        console.error('Error resetting mappings:', error);
+                    }
+                },
+                
+                autoMapSimilar() {
+                    // Auto-map campaigns and UTMs with similar names
+                    const unmappedCampaignsCopy = [...this.unmappedCampaigns];
+                    const unmappedUTMsCopy = [...this.unmappedUTMs];
+                    
+                    for (const campaign of unmappedCampaignsCopy) {
+                        const campaignLower = campaign.toLowerCase();
+                        for (const bucketName of Object.keys(this.buckets)) {
+                            const bucketLower = bucketName.toLowerCase();
+                            
+                            // Check if campaign contains state/type keywords from bucket name
+                            if ((bucketLower.includes('california') && campaignLower.includes('ca')) ||
+                                (bucketLower.includes('arizona') && campaignLower.includes('az')) ||
+                                (bucketLower.includes('georgia') && campaignLower.includes('ga')) ||
+                                (bucketLower.includes('texas') && campaignLower.includes('tx'))) {
+                                
+                                if ((bucketLower.includes('brand') && campaignLower.includes('brand')) ||
+                                    (bucketLower.includes('prospecting') && (campaignLower.includes('nonbrand') || campaignLower.includes('pmax'))) ||
+                                    (bucketLower.includes('lsa') && (campaignLower.includes('lsa') || campaignLower.includes('local')))) {
+                                    
+                                    this.addCampaignToBucket(bucketName, campaign);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Auto-map UTMs
+                    for (const utm of unmappedUTMsCopy) {
+                        const utmLower = utm.toLowerCase();
+                        for (const bucketName of Object.keys(this.buckets)) {
+                            const bucketLower = bucketName.toLowerCase();
+                            
+                            if ((bucketLower.includes('california') && utmLower.includes('ca')) ||
+                                (bucketLower.includes('arizona') && utmLower.includes('az')) ||
+                                (bucketLower.includes('georgia') && utmLower.includes('ga')) ||
+                                (bucketLower.includes('texas') && utmLower.includes('tx'))) {
+                                
+                                if ((bucketLower.includes('brand') && utmLower.includes('brand')) ||
+                                    (bucketLower.includes('prospecting') && (utmLower.includes('pmax') || utmLower.includes('nonbrand'))) ||
+                                    (bucketLower.includes('lsa') && utmLower.includes('lsa'))) {
+                                    
+                                    this.addUTMToBucket(bucketName, utm);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                },
+                
+                exportMappings() {
+                    const exportData = {
+                        buckets: this.buckets,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    const json = JSON.stringify(exportData, null, 2);
+                    const blob = new Blob([json], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `sweet-james-mappings-${Date.now()}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                },
+                
+                importMappings() {
+                    try {
+                        const data = JSON.parse(this.importData);
+                        if (data.buckets) {
+                            this.buckets = data.buckets;
+                            this.showImportDialog = false;
+                            this.importData = '';
+                            alert('Mappings imported successfully!');
+                        }
+                    } catch (error) {
+                        alert('Invalid JSON data. Please check the format and try again.');
+                    }
+                },
+                
+                getDefaultBuckets() {
+                    return {
+                        "California Brand": {
+                            campaigns: ["CA-EN-Brand"],
+                            utms: ["CA-EN-Brand"]
+                        },
+                        "California Prospecting": {
+                            campaigns: ["GS_NonBrand - CA", "CA-Pmax-EN-MVA", "CA-SF-Pmax-EN-MVA", "CA-SC-Pmax-EN-MVA", "CA-SC-Pmax-ES-MVA"],
+                            utms: ["CA-Pmax-EN-MVA", "CA-SC-Pmax-EN-MVA", "CA-SC-Pmax-ES-MVA", "CA-SF-Pmax-EN-MVA", "gs_nonbrand-ca", "SC-S-EN-Exp"]
+                        },
+                        "California LSA": {
+                            campaigns: ["LocalServicesCampaign:CA", "CA-LSA", "CA-NB-LSA", "CA-LA-LSA"],
+                            utms: ["CA-NB-LSA", "CA-LA-LSA"]
+                        },
+                        "Arizona Brand": {
+                            campaigns: ["AZ-EN-Brand", "GS_Brand - AZ"],
+                            utms: ["gs_brand-az", "AZ-EN-Brand"]
+                        },
+                        "Arizona Prospecting": {
+                            campaigns: ["GS_NonBrand - AZ", "AZ-Pmax-EN-MVA", "PMAX_AZ", "AZ-PX-Pmax-EN-MVA"],
+                            utms: ["AZ-PX-Pmax-EN-MVA", "gs_nonbrand-az", "pmax_az"]
+                        },
+                        "Arizona LSA": {
+                            campaigns: ["LocalServicesCampaign:AZ", "AZ-LSA", "AZ-PX-LSA"],
+                            utms: ["AZ-PX-LSA"]
+                        },
+                        "Georgia Brand": {
+                            campaigns: ["GA-EN-Brand", "GS_Brand - GA - ATLPI", "GS_Brand - GA"],
+                            utms: ["gs_brand-ga", "gs_brand-atlpi", "GA-EN-Brand"]
+                        },
+                        "Georgia Prospecting": {
+                            campaigns: ["PMAX_GA", "GS_NonBrand - GA", "GS_NonBrand - GA - ATLPI", "GA-AT-Pmax-EN-MVA"],
+                            utms: ["gs_nonbrand-ga", "gs_nonbrand-ga-atlpi", "pmax_ga"]
+                        },
+                        "Georgia LSA": {
+                            campaigns: ["LocalServicesCampaign:GA", "GA-LSA", "GA-RO-LSA"],
+                            utms: ["GA-RO-LSA"]
+                        },
+                        "Texas Brand": {
+                            campaigns: ["TX-EN-Brand"],
+                            utms: ["TX-EN-Brand"]
+                        },
+                        "Texas LSA": {
+                            campaigns: ["LocalServicesCampaign:TX", "TX-LSA"],
+                            utms: []
+                        }
+                    };
+                }
+            }
+        }
+    </script>
+</body>
+</html>

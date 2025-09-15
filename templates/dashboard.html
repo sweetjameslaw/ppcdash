@@ -1,0 +1,1779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sweet James - PPC Performance Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- jQuery instead of Alpine.js -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Core styles */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f3f4f6;
+        }
+        
+        /* Dark mode */
+        body.dark-mode {
+            background-color: #111827;
+            color: #f3f4f6;
+        }
+        
+        /* Sidebar styles - FIXED visibility */
+        .sidebar {
+            width: 280px;
+            background: white;
+            border-right: 1px solid #e5e7eb;
+            transition: all 0.3s ease;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        
+        .sidebar.collapsed {
+            width: 0;
+            overflow: hidden;
+        }
+        
+        body.dark-mode .sidebar {
+            background: #1f2937;
+            border-right-color: #374151;
+        }
+        
+        /* Main content */
+        .main-content {
+            margin-left: 280px;
+            transition: all 0.3s ease;
+            min-height: 100vh;
+        }
+        
+        .main-content.expanded {
+            margin-left: 0;
+        }
+        
+        /* Card styles */
+        .card {
+            background: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        body.dark-mode .card {
+            background: #1f2937;
+        }
+        
+        /* Metric card */
+        .metric-card {
+            background: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        body.dark-mode .metric-card {
+            background: #1f2937;
+        }
+        
+        .metric-label {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-bottom: 0.25rem;
+        }
+        
+        body.dark-mode .metric-label {
+            color: #9ca3af;
+        }
+        
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #111827;
+        }
+        
+        body.dark-mode .metric-value {
+            color: #f3f4f6;
+        }
+        
+        /* Button styles */
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+            transition: all 0.2s;
+        }
+        
+        body.dark-mode .btn-secondary {
+            background: #374151;
+            color: #f3f4f6;
+        }
+        
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+        
+        body.dark-mode .btn-secondary:hover {
+            background: #4b5563;
+        }
+        
+        /* Date button */
+        .date-btn {
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            background: #f3f4f6;
+            color: #374151;
+            transition: all 0.2s;
+        }
+        
+        .date-btn:hover {
+            background: #e5e7eb;
+        }
+        
+        .date-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        body.dark-mode .date-btn {
+            background: #374151;
+            color: #f3f4f6;
+        }
+        
+        body.dark-mode .date-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        /* Table styles */
+        .table-header {
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        body.dark-mode .table-header {
+            background: #111827;
+            border-bottom-color: #374151;
+        }
+        
+        .table-row {
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        body.dark-mode .table-row {
+            border-bottom-color: #374151;
+        }
+        
+        /* Alternating row colors */
+        .table-row:nth-child(even) {
+            background: #f9fafb;
+        }
+        
+        body.dark-mode .table-row:nth-child(even) {
+            background: #1a202c;
+        }
+        
+        .table-row:hover {
+            background: #ede9fe !important;
+        }
+        
+        body.dark-mode .table-row:hover {
+            background: #2d3748 !important;
+        }
+        
+        .table-cell {
+            padding: 0.75rem;
+            font-size: 0.875rem;
+        }
+        
+        /* Client link styles */
+        .client-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .client-link:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+        
+        body.dark-mode .client-link {
+            color: #818cf8;
+        }
+        
+        body.dark-mode .client-link:hover {
+            color: #a78bfa;
+        }
+        
+        /* Navigation links */
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem;
+            color: #374151;
+            text-decoration: none;
+            transition: all 0.2s;
+            font-size: 0.875rem;
+        }
+        
+        .nav-link:hover {
+            background: #f3f4f6;
+            color: #111827;
+        }
+        
+        .nav-link.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        body.dark-mode .nav-link {
+            color: #d1d5db;
+        }
+        
+        body.dark-mode .nav-link:hover {
+            background: #374151;
+            color: #f3f4f6;
+        }
+        
+        body.dark-mode .nav-link.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        /* Loader */
+        .loader {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Status dot */
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        /* Sidebar toggle - FIXED positioning */
+        .sidebar-toggle {
+            position: fixed;
+            left: 260px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+            transition: left 0.3s ease;
+        }
+        
+        .sidebar.collapsed ~ .sidebar-toggle {
+            left: -16px;
+        }
+        
+        body.dark-mode .sidebar-toggle {
+            background: #1f2937;
+            border-color: #374151;
+        }
+        
+        /* Exclusion filters */
+        .exclusion-filters {
+            background: #fef3c7;
+            padding: 0.75rem;
+            border-radius: 0.375rem;
+            border: 1px solid #fbbf24;
+        }
+        
+        body.dark-mode .exclusion-filters {
+            background: #78350f;
+            border-color: #92400e;
+        }
+        
+        .text-warning {
+            color: #f59e0b;
+        }
+        
+        /* Text colors matching theme */
+        .text-green-600 { color: #10b981; }
+        .text-blue-600 { color: #3b82f6; }
+        .text-purple-600 { color: #8b5cf6; }
+        .text-yellow-600 { color: #f59e0b; }
+        .text-red-600 { color: #ef4444; }
+        .text-gray-500 { color: #6b7280; }
+        
+        /* Special row for Crisp/YouTube */
+        .youtube-row {
+            background: linear-gradient(135deg, #fee2e2 0%, #fef3c7 100%);
+            font-style: italic;
+        }
+        
+        body.dark-mode .youtube-row {
+            background: linear-gradient(135deg, #7f1d1d 0%, #78350f 100%);
+        }
+        
+        /* Mobile styles */
+        @media (max-width: 768px) {
+            .hide-mobile {
+                display: none !important;
+            }
+            
+            .show-mobile {
+                display: flex !important;
+            }
+            
+            .sidebar {
+                position: fixed;
+                z-index: 50;
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .sidebar-toggle {
+                left: 264px;
+            }
+            
+            .sidebar.collapsed ~ .sidebar-toggle {
+                left: -16px;
+            }
+        }
+        
+        @media (min-width: 769px) {
+            .show-mobile {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar fixed left-0 top-0 z-40">
+        <div class="p-6 border-b border-gray-200 dark-mode:border-gray-700">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center">
+                    <span class="font-bold text-white text-sm">SJ</span>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-gray-900 dark-mode:text-white">Sweet James</h1>
+                    <p class="text-xs text-gray-500 dark-mode:text-gray-300">Analytics Suite</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar Content -->
+        <div class="p-6 space-y-6">
+            
+            <!-- Navigation Section -->
+            <div>
+                <h3 class="text-xs font-medium text-gray-500 dark-mode:text-gray-400 uppercase tracking-wider mb-3">Dashboards</h3>
+                <nav class="space-y-1">
+                    <a href="/" class="nav-link active">
+                        <i class="fas fa-chart-line mr-3 w-4"></i>
+                        <span>Performance Dashboard</span>
+                    </a>
+                    <a href="/forecasting" class="nav-link">
+                        <i class="fas fa-chart-bar mr-3 w-4"></i>
+                        <span>Forecasting</span>
+                    </a>
+                    <a href="/comparison-dashboard" class="nav-link">
+                        <i class="fas fa-balance-scale mr-3 w-4"></i>
+                        <span>Period Comparison</span>
+                    </a>
+                    <a href="/current-month-performance" class="nav-link">
+                        <i class="fas fa-calendar-day mr-3 w-4"></i>
+                        <span>Current Month</span>
+                    </a>
+                    <a href="/annual-analytics" class="nav-link">
+                        <i class="fas fa-calendar mr-3 w-4"></i>
+                        <span>Annual Analytics</span>
+                    </a>
+                </nav>
+            </div>
+            
+            <!-- Configuration Section -->
+            <div>
+                <h3 class="text-xs font-medium text-gray-500 dark-mode:text-gray-400 uppercase tracking-wider mb-3">Configuration</h3>
+                <nav class="space-y-1">
+                    <a href="/campaign-mapping" class="nav-link">
+                        <i class="fas fa-sitemap mr-3 w-4"></i>
+                        <span>Campaign Mapping</span>
+                    </a>
+                </nav>
+            </div>
+            
+            <!-- Lead Filters Section -->
+            <div>
+                <h3 class="text-xs font-medium text-gray-500 dark-mode:text-gray-400 uppercase tracking-wider mb-3">Lead Filters</h3>
+                
+                <!-- Exclusion Filters -->
+                <div class="space-y-2">
+                    <h4 class="text-xs text-gray-600 dark-mode:text-gray-300 font-medium mb-2">Include Excluded Types:</h4>
+                    <label class="flex items-center space-x-2">
+                        <input type="checkbox" id="includeSpam" class="form-checkbox rounded">
+                        <span class="text-sm text-gray-700 dark-mode:text-gray-300">Include Spam (<span id="spamCount">0</span>)</span>
+                    </label>
+                    <label class="flex items-center space-x-2">
+                        <input type="checkbox" id="includeAbandoned" class="form-checkbox rounded">
+                        <span class="text-sm text-gray-700 dark-mode:text-gray-300">Include Abandoned (<span id="abandonedCount">0</span>)</span>
+                    </label>
+                    <label class="flex items-center space-x-2">
+                        <input type="checkbox" id="includeDuplicate" class="form-checkbox rounded">
+                        <span class="text-sm text-gray-700 dark-mode:text-gray-300">Include Duplicate (<span id="duplicateCount">0</span>)</span>
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Dark Mode Toggle -->
+            <div class="pt-4 border-t border-gray-200 dark-mode:border-gray-700">
+                <button id="darkModeToggle" class="w-full btn-secondary px-4 py-2 rounded-md text-sm">
+                    <i id="darkModeIcon" class="fas fa-moon mr-2"></i>
+                    <span id="darkModeText">Dark Mode</span>
+                </button>
+            </div>
+        </div>
+    </aside>
+    
+    <!-- Sidebar Toggle Button -->
+    <div class="sidebar-toggle" id="sidebarToggle">
+        <i id="sidebarIcon" class="fas fa-chevron-left text-gray-500 text-sm"></i>
+    </div>
+    
+    <!-- Main Content -->
+    <main id="mainContent" class="main-content">
+        <!-- Enhanced Top Bar with Controls -->
+        <header class="card border-b sticky top-0 z-30">
+            <div class="px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <!-- Left side - Title -->
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-900 dark-mode:text-white">Performance Dashboard</h2>
+                        <p class="text-sm text-gray-500 dark-mode:text-gray-400 mt-1">
+                            <span id="dateRangeText"></span> • 
+                            <span id="filterText"></span>
+                            <span id="exclusionText" class="text-warning" style="display: none;">
+                                • Including: <span id="exclusionList"></span>
+                            </span>
+                        </p>
+                    </div>
+                    
+                    <!-- Right side - Controls -->
+                    <div class="flex items-center space-x-3">
+                        <!-- API Status -->
+                        <div>
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between p-3 card rounded-md">
+                                    <span class="text-sm text-gray-700 dark-mode:text-gray-200">Google Ads</span>
+                                    &nbsp; <div id="googleAdsStatus" class="status-dot bg-amber-500"></div>&nbsp; 
+                                    &nbsp; <span class="text-sm text-gray-700 dark-mode:text-gray-200">Litify</span>&nbsp;
+                                    <div id="litifyStatus" class="status-dot bg-amber-500"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Date Range Buttons -->
+                        <div class="flex items-center space-x-1 hide-mobile">
+                            <button data-range="today" class="date-btn">Today</button>
+                            <button data-range="yesterday" class="date-btn">Yesterday</button>
+                            <button data-range="week" class="date-btn">7 Days</button>
+                            <button data-range="month" class="date-btn">30 Days</button>
+                            <button data-range="custom" class="date-btn">Custom</button>
+                        </div>
+                        
+                        <!-- Refresh Button -->
+                        <button id="refreshBtn" class="btn-primary px-4 py-2 rounded-md text-sm">
+                            <i id="refreshIcon" class="fas fa-sync-alt mr-2"></i>
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Mobile Date Range -->
+                <div class="mobile-date-range mt-3 flex items-center space-x-2 show-mobile">
+                    <button data-range="today" class="date-btn flex-1">Today</button>
+                    <button data-range="week" class="date-btn flex-1">Week</button>
+                    <button data-range="month" class="date-btn flex-1">Month</button>
+                </div>
+                
+                <!-- Exclusion Filter Alert Bar -->
+                <div id="exclusionAlert" class="exclusion-filters mt-3" style="display: none;">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-info-circle text-warning"></i>
+                            <span class="text-sm text-gray-700 dark-mode:text-gray-300">
+                                Currently including <span id="includedCount" class="font-semibold">0</span> 
+                                additional leads from excluded case types
+                            </span>
+                        </div>
+                        <button id="clearExclusionBtn" class="text-sm text-warning hover:underline">
+                            Clear filters
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <div class="p-6">
+            <!-- Loading State -->
+            <div id="loadingState" class="flex justify-center items-center py-20" style="display: none;">
+                <div class="text-center">
+                    <div class="loader mx-auto mb-4"></div>
+                    <p class="text-lg font-medium text-gray-900 dark-mode:text-white">Loading dashboard data...</p>
+                    <p class="text-sm text-gray-500 dark-mode:text-gray-400 mt-2">Fetching from Google Ads and Litify...</p>
+                </div>
+            </div>
+
+            <!-- Error State -->
+            <div id="errorState" class="card rounded-lg p-8 text-center" style="display: none;">
+                <i class="fas fa-exclamation-circle text-5xl text-red-500 mb-4"></i>
+                <h2 class="text-xl font-bold text-gray-900 dark-mode:text-white mb-2">Connection Error</h2>
+                <p id="errorMessage" class="text-gray-500 dark-mode:text-gray-400 mb-4"></p>
+                <button id="retryBtn" class="btn-primary px-6 py-2 rounded-md">
+                    <i class="fas fa-redo mr-2"></i>
+                    Retry Connection
+                </button>
+            </div>
+
+            <!-- Main Dashboard Content -->
+            <div id="dashboardContent">
+                <!-- Summary Cards (excluding Crisp/YouTube) -->
+                <div id="summaryCards" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-6">
+                    <!-- Cards will be dynamically inserted here -->
+                </div>
+
+                <!-- Campaign Performance Table -->
+                <div class="card rounded-lg mb-6">
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900 dark-mode:text-white">Campaign Performance by Bucket</h3>
+                                <p class="text-xs text-gray-500 dark-mode:text-gray-400 mt-1">*Crisp/YouTube tracked separately below</p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button id="exportBtn" class="btn-secondary px-3 py-1 rounded-md text-sm">
+                                    <i class="fas fa-download mr-1"></i>
+                                    Export
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="table-header">
+                                    <tr id="tableHeader"></tr>
+                                </thead>
+                                <tbody id="tableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Litify Leads Detail -->
+                <div id="litifySection" class="card rounded-lg mb-6">
+                    <div class="p-6">
+                        <div class="border-b pb-4 mb-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="text-lg font-semibold text-gray-900 dark-mode:text-white">Litify Leads Detail</h3>
+                                    <p class="text-sm text-gray-500 dark-mode:text-gray-400 mt-1">
+                                        <span id="litifyLeadsCount" class="font-medium text-gray-700 dark-mode:text-gray-300">0</span> leads
+                                        <span id="litifyBucketText"></span>
+                                    </p>
+                                </div>
+                                <div class="flex items-center space-x-4">
+                                    <select id="litifyBucketFilter" class="form-input px-3 py-2 rounded-md text-sm border border-gray-300 dark-mode:border-gray-600">
+                                        <option value="all">All Buckets</option>
+                                    </select>
+                                    
+                                    <button id="litifyToggle" class="btn-secondary px-3 py-2 rounded-md text-sm">
+                                        <i id="litifyToggleIcon" class="fas fa-chevron-down"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="litifyDetail" class="overflow-x-auto max-h-[500px] overflow-y-auto">
+                            <table class="w-full">
+                                <thead class="table-header sticky top-0 z-10">
+                                    <tr id="litifyTableHeader"></tr>
+                                </thead>
+                                <tbody id="litifyTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Performance Trend Chart -->
+                    <div class="card rounded-lg p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 dark-mode:text-white mb-4">
+                            Performance Trend
+                            <span class="text-xs font-normal text-gray-500 dark-mode:text-gray-400">(Excludes YouTube)</span>
+                        </h3>
+                        <div class="h-64">
+                            <canvas id="performanceChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Cost Breakdown Chart -->
+                    <div class="card rounded-lg p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 dark-mode:text-white mb-4">
+                            Cost Breakdown
+                            <span class="text-xs font-normal text-gray-500 dark-mode:text-gray-400">(Excludes YouTube)</span>
+                        </h3>
+                        <div class="h-64">
+                            <canvas id="costChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Key Insights -->
+                    <div class="card rounded-lg p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 dark-mode:text-white mb-4">
+                            Key Insights
+                            <span class="text-xs font-normal text-gray-500 dark-mode:text-gray-400">(Excludes YouTube)</span>
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between p-3 bg-gray-50 dark-mode:bg-gray-700 rounded-md">
+                                <span class="text-sm text-gray-600 dark-mode:text-gray-400">Best Conversion</span>
+                                <span id="bestConversion" class="font-semibold text-green-600 dark-mode:text-green-400"></span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-gray-50 dark-mode:bg-gray-700 rounded-md">
+                                <span class="text-sm text-gray-600 dark-mode:text-gray-400">Lowest CPL</span>
+                                <span id="lowestCPL" class="font-semibold text-blue-600 dark-mode:text-blue-400"></span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-gray-50 dark-mode:bg-gray-700 rounded-md">
+                                <span class="text-sm text-gray-600 dark-mode:text-gray-400">Highest Volume</span>
+                                <span id="highestVolume" class="font-semibold text-purple-600 dark-mode:text-purple-400"></span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-gray-50 dark-mode:bg-gray-700 rounded-md">
+                                <span class="text-sm text-gray-600 dark-mode:text-gray-400">Most Efficient CPA</span>
+                                <span id="mostEfficient" class="font-semibold text-gray-700 dark-mode:text-gray-300"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+<script>
+// Dashboard App - jQuery Version (Complete with all features and fixes)
+$(document).ready(function() {
+    // State Management
+    const state = {
+        darkMode: localStorage.getItem('darkMode') === 'true',
+        sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true',
+        dateRangePreset: 'today',
+        startDate: '',
+        endDate: '',
+        includeSpam: false,
+        includeAbandoned: false,
+        includeDuplicate: false,
+        isLoading: false,
+        isRefreshing: false,
+        dashboardData: {},
+        litifyLeads: [],
+        filteredLitifyLeads: [],
+        litifyBucketFilter: 'all',
+        showLitifyDetail: true,
+        availableBuckets: [],
+        charts: {
+            performance: null,
+            cost: null
+        }
+    };
+
+    // Initialize the app
+    init();
+
+    function init() {
+        console.log('Initializing dashboard...');
+        setupEventListeners();
+        applyInitialSettings();
+        setDateRange('today');
+        checkApiStatus();
+        fetchData();
+    }
+
+    // Apply initial settings
+    function applyInitialSettings() {
+        // Apply dark mode if enabled
+        if (state.darkMode) {
+            $('body').addClass('dark-mode');
+            $('#darkModeIcon').removeClass('fa-moon').addClass('fa-sun');
+            $('#darkModeText').text('Light Mode');
+        }
+        
+        // Apply sidebar collapsed state
+        if (state.sidebarCollapsed) {
+            $('#sidebar').addClass('collapsed');
+            $('#mainContent').addClass('expanded');
+            $('#sidebarIcon').removeClass('fa-chevron-left').addClass('fa-chevron-right');
+        }
+    }
+
+    // Setup all event listeners
+    function setupEventListeners() {
+        // Sidebar toggle
+        $('#sidebarToggle').on('click', toggleSidebar);
+        
+        // Dark mode toggle
+        $('#darkModeToggle').on('click', toggleDarkMode);
+        
+        // Date range buttons
+        $(document).on('click', '.date-btn', function() {
+            const range = $(this).data('range');
+            if (range) {
+                setDateRange(range);
+            }
+        });
+        
+        // Refresh button
+        $('#refreshBtn').on('click', refreshData);
+        
+        // Retry button
+        $('#retryBtn').on('click', function() {
+            fetchData();
+        });
+        
+        // Export button
+        $('#exportBtn').on('click', exportData);
+        
+        // Exclusion checkboxes
+        $('#includeSpam').on('change', function() {
+            state.includeSpam = $(this).prop('checked');
+            updateExclusionDisplay();
+            fetchData();
+        });
+        
+        $('#includeAbandoned').on('change', function() {
+            state.includeAbandoned = $(this).prop('checked');
+            updateExclusionDisplay();
+            fetchData();
+        });
+        
+        $('#includeDuplicate').on('change', function() {
+            state.includeDuplicate = $(this).prop('checked');
+            updateExclusionDisplay();
+            fetchData();
+        });
+        
+        // Clear exclusion filters
+        $('#clearExclusionBtn').on('click', clearExclusionFilters);
+        
+        // Litify bucket filter
+        $('#litifyBucketFilter').on('change', filterLitifyLeads);
+        
+        // Litify detail toggle
+        $('#litifyToggle').on('click', toggleLitifyDetail);
+    }
+
+    // Toggle sidebar with proper chart resizing
+    function toggleSidebar() {
+        state.sidebarCollapsed = !state.sidebarCollapsed;
+        
+        if (state.sidebarCollapsed) {
+            $('#sidebar').addClass('collapsed');
+            $('#mainContent').addClass('expanded');
+            $('#sidebarIcon').removeClass('fa-chevron-left').addClass('fa-chevron-right');
+        } else {
+            $('#sidebar').removeClass('collapsed');
+            $('#mainContent').removeClass('expanded');
+            $('#sidebarIcon').removeClass('fa-chevron-right').addClass('fa-chevron-left');
+        }
+        
+        localStorage.setItem('sidebarCollapsed', state.sidebarCollapsed);
+        
+        // Trigger chart resize after animation completes
+        setTimeout(() => {
+            if (state.charts.performance) state.charts.performance.resize();
+            if (state.charts.cost) state.charts.cost.resize();
+        }, 300);
+    }
+
+    // Toggle dark mode
+    function toggleDarkMode() {
+        state.darkMode = !state.darkMode;
+        
+        if (state.darkMode) {
+            $('body').addClass('dark-mode');
+            $('#darkModeIcon').removeClass('fa-moon').addClass('fa-sun');
+            $('#darkModeText').text('Light Mode');
+        } else {
+            $('body').removeClass('dark-mode');
+            $('#darkModeIcon').removeClass('fa-sun').addClass('fa-moon');
+            $('#darkModeText').text('Dark Mode');
+        }
+        
+        localStorage.setItem('darkMode', state.darkMode);
+    }
+
+    // Set date range
+    function setDateRange(preset) {
+        state.dateRangePreset = preset;
+        const today = new Date();
+        let start, end;
+        
+        switch(preset) {
+            case 'today':
+                start = end = formatDate(today);
+                break;
+            case 'yesterday':
+                const yesterday = new Date(today);
+                yesterday.setDate(yesterday.getDate() - 1);
+                start = end = formatDate(yesterday);
+                break;
+            case 'week':
+                const weekAgo = new Date(today);
+                weekAgo.setDate(weekAgo.getDate() - 6);
+                start = formatDate(weekAgo);
+                end = formatDate(today);
+                break;
+            case 'month':
+                const monthAgo = new Date(today);
+                monthAgo.setDate(monthAgo.getDate() - 29);
+                start = formatDate(monthAgo);
+                end = formatDate(today);
+                break;
+            case 'custom':
+                console.log('Custom date range not implemented yet');
+                return;
+        }
+        
+        state.startDate = start;
+        state.endDate = end;
+        
+        // Update UI
+        $('.date-btn').removeClass('active');
+        $(`.date-btn[data-range="${preset}"]`).addClass('active');
+        updateDateRangeText();
+        
+        fetchData();
+    }
+
+    // Update date range text
+    function updateDateRangeText() {
+        let text = '';
+        if (state.startDate === state.endDate) {
+            text = formatDisplayDate(state.startDate);
+        } else {
+            text = `${formatDisplayDate(state.startDate)} - ${formatDisplayDate(state.endDate)}`;
+        }
+        $('#dateRangeText').text(text);
+    }
+
+    // Check API status
+    function checkApiStatus() {
+        $.ajax({
+            url: '/api/status',
+            method: 'GET',
+            success: function(response) {
+                const googleStatus = response.google_ads_connected;
+                const litifyStatus = response.litify_connected;
+                
+                $('#googleAdsStatus')
+                    .removeClass('bg-amber-500 bg-green-500 bg-red-500')
+                    .addClass(googleStatus ? 'bg-green-500' : 'bg-red-500');
+                
+                $('#litifyStatus')
+                    .removeClass('bg-amber-500 bg-green-500 bg-red-500')
+                    .addClass(litifyStatus ? 'bg-green-500' : 'bg-red-500');
+            }
+        });
+    }
+
+    // Fetch dashboard data
+    function fetchData() {
+        if (state.isLoading) return;
+        
+        console.log('Fetching data with params:', {
+            start_date: state.startDate,
+            end_date: state.endDate,
+            include_spam: state.includeSpam,
+            include_abandoned: state.includeAbandoned,
+            include_duplicate: state.includeDuplicate
+        });
+        
+        state.isLoading = true;
+        
+        // Show loading state
+        $('#loadingState').show();
+        $('#errorState').hide();
+        $('#dashboardContent').hide();
+        
+        $.ajax({
+            url: '/api/dashboard-data',
+            method: 'GET',
+            data: {
+                start_date: state.startDate,
+                end_date: state.endDate,
+                include_spam: state.includeSpam,
+                include_abandoned: state.includeAbandoned,
+                include_duplicate: state.includeDuplicate
+            },
+            success: function(response) {
+                console.log('Data received:', response);
+                state.dashboardData = response;
+                
+                // Extract litify leads
+                state.litifyLeads = response.litify_leads || [];
+                state.availableBuckets = response.available_buckets || [];
+                
+                console.log('Litify leads count:', state.litifyLeads.length);
+                
+                updateExclusionCounts();
+                filterLitifyLeads();
+                renderDashboard();
+                
+                $('#loadingState').hide();
+                $('#dashboardContent').show();
+            },
+            error: function(xhr, status, error) {
+                console.error('Error fetching data:', error, xhr.responseText);
+                let errorMessage = 'Failed to load dashboard data. Please try again.';
+                
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.error) {
+                        errorMessage = response.error;
+                    }
+                } catch (e) {
+                    // Use default error message
+                }
+                
+                $('#errorMessage').text(errorMessage);
+                $('#loadingState').hide();
+                $('#errorState').show();
+            },
+            complete: function() {
+                state.isLoading = false;
+                state.isRefreshing = false;
+                $('#refreshIcon').removeClass('fa-spin');
+            }
+        });
+    }
+
+    // Refresh data
+    function refreshData() {
+        if (state.isRefreshing) return;
+        
+        state.isRefreshing = true;
+        $('#refreshIcon').addClass('fa-spin');
+        fetchData();
+    }
+
+    // Update exclusion counts
+    function updateExclusionCounts() {
+        const excluded = state.dashboardData.excluded_lead_counts || {};
+        $('#spamCount').text(excluded.spam || 0);
+        $('#abandonedCount').text(excluded.abandoned || 0);
+        $('#duplicateCount').text(excluded.duplicate || 0);
+    }
+
+    // Update exclusion display
+    function updateExclusionDisplay() {
+        const hasFilters = state.includeSpam || state.includeAbandoned || state.includeDuplicate;
+        
+        if (hasFilters) {
+            const filters = [];
+            if (state.includeSpam) filters.push('Spam');
+            if (state.includeAbandoned) filters.push('Abandoned');
+            if (state.includeDuplicate) filters.push('Duplicate');
+            
+            $('#exclusionList').text(filters.join(', '));
+            $('#exclusionText').show();
+            $('#exclusionAlert').show();
+            
+            const excluded = state.dashboardData.excluded_lead_counts || {};
+            let count = 0;
+            if (state.includeSpam) count += excluded.spam || 0;
+            if (state.includeAbandoned) count += excluded.abandoned || 0;
+            if (state.includeDuplicate) count += excluded.duplicate || 0;
+            $('#includedCount').text(count);
+        } else {
+            $('#exclusionText').hide();
+            $('#exclusionAlert').hide();
+        }
+        
+        updateFilterText();
+    }
+
+    // Update filter text
+    function updateFilterText() {
+        const filters = [];
+        if (state.includeSpam) filters.push('Spam');
+        if (state.includeAbandoned) filters.push('Abandoned');
+        if (state.includeDuplicate) filters.push('Duplicate');
+        
+        if (filters.length > 0) {
+            $('#filterText').text(`Including: ${filters.join(', ')}`);
+        } else {
+            $('#filterText').text('Standard filters');
+        }
+    }
+
+    // Clear exclusion filters
+    function clearExclusionFilters() {
+        state.includeSpam = false;
+        state.includeAbandoned = false;
+        state.includeDuplicate = false;
+        
+        $('#includeSpam, #includeAbandoned, #includeDuplicate').prop('checked', false);
+        updateExclusionDisplay();
+        fetchData();
+    }
+
+    // Filter Litify leads
+    function filterLitifyLeads() {
+        const filter = $('#litifyBucketFilter').val() || 'all';
+        state.litifyBucketFilter = filter;
+        
+        if (filter === 'all') {
+            state.filteredLitifyLeads = state.litifyLeads;
+            $('#litifyBucketText').text('');
+        } else {
+            state.filteredLitifyLeads = state.litifyLeads.filter(lead => 
+                lead.bucket === filter
+            );
+            $('#litifyBucketText').html(` in <span class="font-medium text-gray-700 dark-mode:text-gray-300">${filter}</span>`);
+        }
+        
+        $('#litifyLeadsCount').text(state.filteredLitifyLeads.length);
+        renderLitifyTable();
+    }
+
+    // Toggle Litify detail
+    function toggleLitifyDetail() {
+        state.showLitifyDetail = !state.showLitifyDetail;
+        
+        if (state.showLitifyDetail) {
+            $('#litifyDetail').slideDown();
+            $('#litifyToggleIcon').removeClass('fa-chevron-down').addClass('fa-chevron-up');
+            renderLitifyTable();
+        } else {
+            $('#litifyDetail').slideUp();
+            $('#litifyToggleIcon').removeClass('fa-chevron-up').addClass('fa-chevron-down');
+        }
+    }
+
+    // Render dashboard
+    function renderDashboard() {
+        renderSummaryCards();
+        renderCampaignTable();
+        renderCharts();
+        updateKeyInsights();
+        
+        // Show/hide Litify section
+        if (state.litifyLeads && state.litifyLeads.length > 0) {
+            $('#litifySection').show();
+            $('#litifyDetail').show();
+            $('#litifyToggleIcon').removeClass('fa-chevron-down').addClass('fa-chevron-up');
+            updateBucketFilter();
+            $('#litifyLeadsCount').text(state.filteredLitifyLeads.length);
+            renderLitifyTable();
+        } else {
+            $('#litifySection').hide();
+        }
+    }
+
+    // Render summary cards (excluding Crisp/YouTube)
+    function renderSummaryCards() {
+        const buckets = state.dashboardData.buckets || [];
+        
+        // Calculate totals excluding Crisp/YouTube
+        const totals = {
+            spend: 0,
+            leads: 0,
+            cases: 0,
+            retainers: 0,
+            inPractice: 0
+        };
+        
+        buckets.forEach(bucket => {
+            // Exclude Crisp/Youtube from totals
+            if (!bucket.name.includes('Youtube') && !bucket.name.includes('Crisp')) {
+                totals.spend += bucket.cost || 0;
+                totals.leads += bucket.leads || 0;
+                totals.cases += bucket.cases || 0;
+                totals.retainers += bucket.retainers || 0;
+                totals.inPractice += bucket.inPractice || 0;
+            }
+        });
+        
+        // Calculate averages
+        const avgCPL = totals.leads > 0 ? totals.spend / totals.leads : 0;
+        const avgCPA = totals.cases > 0 ? totals.spend / totals.cases : 0;
+        const avgCPR = totals.retainers > 0 ? totals.spend / totals.retainers : 0;
+        const convRate = totals.inPractice > 0 ? (totals.retainers / totals.inPractice) : 0;
+        
+        const cards = `
+            <div class="metric-card">
+                <div class="metric-label">Ad Spend</div>
+                <div class="metric-value">${formatCurrency(totals.spend)}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Leads</div>
+                <div class="metric-value text-green-600">${formatNumber(totals.leads)}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">CPL</div>
+                <div class="metric-value">${formatCurrency(avgCPL)}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Cases</div>
+                <div class="metric-value text-blue-600">${formatNumber(totals.cases)}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">CPA</div>
+                <div class="metric-value">${formatCurrency(avgCPA)}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Retainers</div>
+                <div class="metric-value text-purple-600">${formatNumber(totals.retainers)}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">CPR</div>
+                <div class="metric-value">${formatCurrency(avgCPR)}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Conv Rate</div>
+                <div class="metric-value">${formatPercentage(convRate)}</div>
+            </div>
+        `;
+        $('#summaryCards').html(cards);
+    }
+
+    // Color coding function for metrics
+    function getMetricColorClass(value, type, isText = true) {
+        const prefix = isText ? 'text-' : 'bg-';
+        
+        switch(type) {
+            case 'cpl':
+                if (value <= 800) return prefix + 'green-600';
+                if (value <= 1200) return prefix + 'yellow-600';
+                return prefix + 'red-600';
+                
+            case 'cpa':
+                if (value <= 3000) return prefix + 'green-600';
+                if (value <= 5000) return prefix + 'yellow-600';
+                return prefix + 'red-600';
+                
+            case 'cpr':
+                if (value <= 4000) return prefix + 'green-600';
+                if (value <= 6000) return prefix + 'yellow-600';
+                return prefix + 'red-600';
+                
+            case 'conversion':
+                if (value >= 0.25) return prefix + 'green-600';
+                if (value >= 0.15) return prefix + 'yellow-600';
+                return prefix + 'red-600';
+                
+            case 'inpractice':
+                if (value >= 0.8) return prefix + 'green-600';
+                if (value >= 0.6) return prefix + 'yellow-600';
+                return prefix + 'red-600';
+                
+            case 'unqualified':
+                if (value <= 0.2) return prefix + 'green-600';
+                if (value <= 0.35) return prefix + 'yellow-600';
+                return prefix + 'red-600';
+                
+            default:
+                return '';
+        }
+    }
+
+    // Render campaign table with color coding and all KPIs
+    function renderCampaignTable() {
+        const buckets = state.dashboardData.buckets || [];
+        
+        // Render header with all KPI columns
+        const headerHtml = `
+            <th class="table-cell text-left">Bucket</th>
+            <th class="table-cell text-right">Spend</th>
+            <th class="table-cell text-right">Leads</th>
+            <th class="table-cell text-right">In Practice</th>
+            <th class="table-cell text-right">In Practice %</th>
+            <th class="table-cell text-right">Unqualified</th>
+            <th class="table-cell text-right">Unqualified %</th>
+            <th class="table-cell text-right">CPL</th>
+            <th class="table-cell text-right">Cases</th>
+            <th class="table-cell text-right">CPA</th>
+            <th class="table-cell text-right">Retainers</th>
+            <th class="table-cell text-right">Pending</th>
+            <th class="table-cell text-right">Total Ret.</th>
+            <th class="table-cell text-right">CPR</th>
+            <th class="table-cell text-right">Conv %</th>
+        `;
+        $('#tableHeader').html(headerHtml);
+        
+        // Render body with totals row
+        let bodyHtml = '';
+        let totalRow = {
+            spend: 0,
+            leads: 0,
+            inPractice: 0,
+            unqualified: 0,
+            cases: 0,
+            retainers: 0,
+            pendingRetainers: 0,
+            totalRetainers: 0
+        };
+        
+        // Separate YouTube/Crisp bucket
+        let youtubeBucket = null;
+        
+        buckets.forEach(bucket => {
+            if (bucket.leads > 0 || bucket.cost > 0) {
+                // Check if this is Crisp/Youtube
+                if (bucket.name.includes('Youtube') || bucket.name.includes('Crisp')) {
+                    youtubeBucket = bucket;
+                } else {
+                    // Add to main table
+                    totalRow.spend += bucket.cost || 0;
+                    totalRow.leads += bucket.leads || 0;
+                    totalRow.inPractice += bucket.inPractice || 0;
+                    totalRow.unqualified += bucket.unqualified || 0;
+                    totalRow.cases += bucket.cases || 0;
+                    totalRow.retainers += bucket.retainers || 0;
+                    totalRow.pendingRetainers += bucket.pendingRetainers || 0;
+                    totalRow.totalRetainers += bucket.totalRetainers || 0;
+                    
+                    // Apply color coding
+                    const cplColor = getMetricColorClass(bucket.costPerLead, 'cpl');
+                    const cpaColor = getMetricColorClass(bucket.cpa, 'cpa');
+                    const cprColor = getMetricColorClass(bucket.costPerRetainer, 'cpr');
+                    const convColor = getMetricColorClass(bucket.conversionRate, 'conversion');
+                    const inPracticeColor = getMetricColorClass(bucket.inPracticePercent, 'inpractice');
+                    const unqualifiedColor = getMetricColorClass(bucket.unqualifiedPercent, 'unqualified');
+                    
+                    bodyHtml += `
+                        <tr class="table-row">
+                            <td class="table-cell font-medium">${bucket.name}</td>
+                            <td class="table-cell text-right">${formatCurrency(bucket.cost)}</td>
+                            <td class="table-cell text-right">${formatNumber(bucket.leads)}</td>
+                            <td class="table-cell text-right">${formatNumber(bucket.inPractice)}</td>
+                            <td class="table-cell text-right ${inPracticeColor}">${formatPercentage(bucket.inPracticePercent)}</td>
+                            <td class="table-cell text-right">${formatNumber(bucket.unqualified)}</td>
+                            <td class="table-cell text-right ${unqualifiedColor}">${formatPercentage(bucket.unqualifiedPercent)}</td>
+                            <td class="table-cell text-right ${cplColor} font-semibold">${formatCurrency(bucket.costPerLead)}</td>
+                            <td class="table-cell text-right">${formatNumber(bucket.cases)}</td>
+                            <td class="table-cell text-right ${cpaColor} font-semibold">${formatCurrency(bucket.cpa)}</td>
+                            <td class="table-cell text-right">${formatNumber(bucket.retainers)}</td>
+                            <td class="table-cell text-right">${formatNumber(bucket.pendingRetainers || 0)}</td>
+                            <td class="table-cell text-right font-semibold">${formatNumber(bucket.totalRetainers || bucket.retainers)}</td>
+                            <td class="table-cell text-right ${cprColor} font-semibold">${formatCurrency(bucket.costPerRetainer)}</td>
+                            <td class="table-cell text-right ${convColor} font-semibold">${formatPercentage(bucket.conversionRate)}</td>
+                        </tr>
+                    `;
+                }
+            }
+        });
+        
+        // Add subtotal row (excluding YouTube)
+        if (bodyHtml) {
+            const totalCPL = totalRow.leads > 0 ? totalRow.spend / totalRow.leads : 0;
+            const totalCPA = totalRow.cases > 0 ? totalRow.spend / totalRow.cases : 0;
+            const totalCPR = totalRow.retainers > 0 ? totalRow.spend / totalRow.retainers : 0;
+            const totalConv = totalRow.inPractice > 0 ? totalRow.retainers / totalRow.inPractice : 0;
+            const totalInPracticePct = totalRow.leads > 0 ? totalRow.inPractice / totalRow.leads : 0;
+            const totalUnqualifiedPct = totalRow.inPractice > 0 ? totalRow.unqualified / totalRow.inPractice : 0;
+            
+            // Apply color coding to totals
+            const totalCplColor = getMetricColorClass(totalCPL, 'cpl');
+            const totalCpaColor = getMetricColorClass(totalCPA, 'cpa');
+            const totalCprColor = getMetricColorClass(totalCPR, 'cpr');
+            const totalConvColor = getMetricColorClass(totalConv, 'conversion');
+            const totalInPracticeColor = getMetricColorClass(totalInPracticePct, 'inpractice');
+            const totalUnqualifiedColor = getMetricColorClass(totalUnqualifiedPct, 'unqualified');
+            
+            bodyHtml += `
+                <tr class="table-row font-bold bg-gray-100 dark-mode:bg-gray-800">
+                    <td class="table-cell">Subtotal (excl. YouTube)</td>
+                    <td class="table-cell text-right">${formatCurrency(totalRow.spend)}</td>
+                    <td class="table-cell text-right">${formatNumber(totalRow.leads)}</td>
+                    <td class="table-cell text-right">${formatNumber(totalRow.inPractice)}</td>
+                    <td class="table-cell text-right ${totalInPracticeColor}">${formatPercentage(totalInPracticePct)}</td>
+                    <td class="table-cell text-right">${formatNumber(totalRow.unqualified)}</td>
+                    <td class="table-cell text-right ${totalUnqualifiedColor}">${formatPercentage(totalUnqualifiedPct)}</td>
+                    <td class="table-cell text-right ${totalCplColor}">${formatCurrency(totalCPL)}</td>
+                    <td class="table-cell text-right">${formatNumber(totalRow.cases)}</td>
+                    <td class="table-cell text-right ${totalCpaColor}">${formatCurrency(totalCPA)}</td>
+                    <td class="table-cell text-right">${formatNumber(totalRow.retainers)}</td>
+                    <td class="table-cell text-right">${formatNumber(totalRow.pendingRetainers)}</td>
+                    <td class="table-cell text-right">${formatNumber(totalRow.totalRetainers)}</td>
+                    <td class="table-cell text-right ${totalCprColor}">${formatCurrency(totalCPR)}</td>
+                    <td class="table-cell text-right ${totalConvColor}">${formatPercentage(totalConv)}</td>
+                </tr>
+            `;
+            
+            // Add YouTube/Crisp row if exists (with color coding)
+            if (youtubeBucket) {
+                const ytCplColor = getMetricColorClass(youtubeBucket.costPerLead, 'cpl');
+                const ytCpaColor = getMetricColorClass(youtubeBucket.cpa, 'cpa');
+                const ytCprColor = getMetricColorClass(youtubeBucket.costPerRetainer, 'cpr');
+                const ytConvColor = getMetricColorClass(youtubeBucket.conversionRate, 'conversion');
+                const ytInPracticeColor = getMetricColorClass(youtubeBucket.inPracticePercent, 'inpractice');
+                const ytUnqualifiedColor = getMetricColorClass(youtubeBucket.unqualifiedPercent, 'unqualified');
+                
+                bodyHtml += `
+                    <tr class="youtube-row">
+                        <td class="table-cell font-medium">
+                            <i class="fab fa-youtube mr-2 text-red-600"></i>
+                            ${youtubeBucket.name}
+                        </td>
+                        <td class="table-cell text-right">${formatCurrency(youtubeBucket.cost)}</td>
+                        <td class="table-cell text-right">${formatNumber(youtubeBucket.leads)}</td>
+                        <td class="table-cell text-right">${formatNumber(youtubeBucket.inPractice)}</td>
+                        <td class="table-cell text-right ${ytInPracticeColor}">${formatPercentage(youtubeBucket.inPracticePercent)}</td>
+                        <td class="table-cell text-right">${formatNumber(youtubeBucket.unqualified)}</td>
+                        <td class="table-cell text-right ${ytUnqualifiedColor}">${formatPercentage(youtubeBucket.unqualifiedPercent)}</td>
+                        <td class="table-cell text-right ${ytCplColor} font-semibold">${formatCurrency(youtubeBucket.costPerLead)}</td>
+                        <td class="table-cell text-right">${formatNumber(youtubeBucket.cases)}</td>
+                        <td class="table-cell text-right ${ytCpaColor} font-semibold">${formatCurrency(youtubeBucket.cpa)}</td>
+                        <td class="table-cell text-right">${formatNumber(youtubeBucket.retainers)}</td>
+                        <td class="table-cell text-right">${formatNumber(youtubeBucket.pendingRetainers || 0)}</td>
+                        <td class="table-cell text-right font-semibold">${formatNumber(youtubeBucket.totalRetainers || youtubeBucket.retainers)}</td>
+                        <td class="table-cell text-right ${ytCprColor} font-semibold">${formatCurrency(youtubeBucket.costPerRetainer)}</td>
+                        <td class="table-cell text-right ${ytConvColor} font-semibold">${formatPercentage(youtubeBucket.conversionRate)}</td>
+                    </tr>
+                `;
+            }
+        } else {
+            bodyHtml = '<tr><td colspan="15" class="text-center py-4 text-gray-500">No campaign data available</td></tr>';
+        }
+        
+        $('#tableBody').html(bodyHtml);
+    }
+
+// Render Litify table with Yes/No flags and client links
+function renderLitifyTable() {
+    const leads = state.filteredLitifyLeads;
+    
+    // Render header
+    const headerHtml = `
+        <th class="table-cell text-left">Date/Time</th>
+        <th class="table-cell text-left">Status</th>
+        <th class="table-cell text-left">Client</th>
+        <th class="table-cell text-left">Case Type</th>
+        <th class="table-cell text-center">In Practice</th>
+        <th class="table-cell text-left">Bucket</th>
+        <th class="table-cell text-left">UTM Campaign</th>
+        <th class="table-cell text-center">Converted</th>
+    `;
+    $('#litifyTableHeader').html(headerHtml);
+    
+    // Render body
+    let bodyHtml = '';
+    leads.forEach(lead => {
+        console.log('Lead data:', lead); // Debug log to see what fields are available
+        
+        // Use Yes/No text labels with color coding
+        const isConverted = lead.is_converted ? 
+            '<span class="text-green-600 font-semibold">Yes</span>' : 
+            '<span class="text-red-600">No</span>';
+        
+        // Updated In Practice colors: Green for Yes, Red for No
+        const inPractice = lead.in_practice ? 
+            '<span class="text-green-600 font-semibold">Yes</span>' : 
+            '<span class="text-red-600">No</span>';
+        
+        // Create client link - check multiple possible field names
+        let clientDisplay = lead.client_name || lead.name || '-';
+        
+        // Try different possible field names for the intake ID
+        const intakeId = lead.intake_id || lead.litify_pm__intake__c || lead.Intake__c || lead.id;
+        
+        if (intakeId && intakeId !== '-' && clientDisplay !== '-') {
+            // Build the proper Litify URL
+            const litifyUrl = `https://sweetjames.lightning.force.com/lightning/r/litify_pm__Intake__c/${intakeId}/view`;
+            clientDisplay = `<a href="${litifyUrl}" 
+                target="_blank" 
+                class="client-link"
+                title="View intake record in Litify">
+                ${lead.client_name || lead.name}
+                <i class="fas fa-external-link-alt text-xs ml-1"></i>
+            </a>`;
+            console.log('Created link:', clientDisplay); // Debug log
+        } else {
+            console.log('No intake_id found for lead:', lead); // Debug log
+        }
+        
+        bodyHtml += `
+            <tr class="table-row">
+                <td class="table-cell">${formatDateTime(lead.created_date)}</td>
+                <td class="table-cell">
+                    <span class="px-2 py-1 text-xs rounded-full ${getStatusClass(lead.status)}">
+                        ${lead.status}
+                    </span>
+                </td>
+                <td class="table-cell">${clientDisplay}</td>
+                <td class="table-cell text-sm">${lead.case_type || '-'}</td>
+                <td class="table-cell text-center">${inPractice}</td>
+                <td class="table-cell">
+                    <span class="px-2 py-1 text-xs bg-gray-100 dark-mode:bg-gray-700 rounded">
+                        ${lead.bucket || 'Unmapped'}
+                    </span>
+                </td>
+                <td class="table-cell text-xs text-gray-600 dark-mode:text-gray-400">${lead.utm_campaign || '-'}</td>
+                <td class="table-cell text-center">${isConverted}</td>
+            </tr>
+        `;
+    });
+    
+    if (leads.length === 0) {
+        bodyHtml = '<tr><td colspan="8" class="text-center py-4 text-gray-500">No leads found for the selected filter</td></tr>';
+    }
+    
+    $('#litifyTableBody').html(bodyHtml);
+}
+
+    // Update bucket filter
+    function updateBucketFilter() {
+        const select = $('#litifyBucketFilter');
+        select.find('option:gt(0)').remove();
+        
+        // Get unique buckets from the leads
+        const uniqueBuckets = [...new Set(state.litifyLeads.map(lead => lead.bucket).filter(b => b))];
+        
+        uniqueBuckets.forEach(bucket => {
+            select.append(`<option value="${bucket}">${bucket}</option>`);
+        });
+    }
+
+    // Render charts (excluding YouTube)
+    function renderCharts() {
+        renderPerformanceChart();
+        renderCostChart();
+    }
+
+    function renderPerformanceChart() {
+        const ctx = document.getElementById('performanceChart');
+        if (!ctx) return;
+        
+        const buckets = state.dashboardData.buckets || [];
+        
+        if (state.charts.performance) {
+            state.charts.performance.destroy();
+        }
+        
+        // Extract data for chart - excluding YouTube
+        const activeBuckets = buckets.filter(b => 
+            b.leads > 0 && !b.name.includes('Youtube') && !b.name.includes('Crisp')
+        );
+        const labels = activeBuckets.map(b => {
+            // Shorten labels for better display
+            return b.name.replace('California', 'CA')
+                         .replace('Arizona', 'AZ')
+                         .replace('Georgia', 'GA')
+                         .replace('Texas', 'TX');
+        });
+        const leadsData = activeBuckets.map(b => b.leads);
+        const casesData = activeBuckets.map(b => b.cases);
+        const retainersData = activeBuckets.map(b => b.retainers);
+        
+        state.charts.performance = new Chart(ctx.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Leads',
+                    data: leadsData,
+                    backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                    borderColor: '#10b981',
+                    borderWidth: 1
+                }, {
+                    label: 'Cases',
+                    data: casesData,
+                    backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                    borderColor: '#3b82f6',
+                    borderWidth: 1
+                }, {
+                    label: 'Retainers',
+                    data: retainersData,
+                    backgroundColor: 'rgba(139, 92, 246, 0.7)',
+                    borderColor: '#8b5cf6',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            padding: 15,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            font: {
+                                size: 11
+                            },
+                            maxRotation: 45,
+                            minRotation: 45
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderCostChart() {
+        const ctx = document.getElementById('costChart');
+        if (!ctx) return;
+        
+        const buckets = state.dashboardData.buckets || [];
+        
+        if (state.charts.cost) {
+            state.charts.cost.destroy();
+        }
+        
+        // Filter buckets - excluding YouTube
+        const filteredBuckets = buckets.filter(b => 
+            b.cost > 0 && !b.name.includes('Youtube') && !b.name.includes('Crisp')
+        );
+        
+        // Consistent color palette
+        const colors = [
+            '#667eea', // Purple
+            '#764ba2', // Dark Purple
+            '#f093fb', // Pink
+            '#4facfe', // Light Blue
+            '#00f2fe', // Cyan
+            '#43e97b', // Green
+            '#38f9d7', // Teal
+            '#fa709a', // Rose
+            '#fee140', // Yellow
+            '#30cfd0', // Ocean
+            '#a8edea', // Light Teal
+            '#fed6e3'  // Light Pink
+        ];
+        
+        state.charts.cost = new Chart(ctx.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: filteredBuckets.map(b => b.name),
+                datasets: [{
+                    data: filteredBuckets.map(b => b.cost),
+                    backgroundColor: colors.slice(0, filteredBuckets.length),
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            padding: 10,
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = formatCurrency(context.raw);
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.raw / total) * 100).toFixed(1);
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Update key insights (excluding YouTube)
+    function updateKeyInsights() {
+        const buckets = state.dashboardData.buckets || [];
+        const activeBuckets = buckets.filter(b => 
+            b.leads > 0 && !b.name.includes('Youtube') && !b.name.includes('Crisp')
+        );
+        
+        if (activeBuckets.length === 0) {
+            $('#bestConversion, #lowestCPL, #highestVolume, #mostEfficient').text('N/A');
+            return;
+        }
+        
+        // Best Conversion
+        const bestConv = activeBuckets.reduce((best, curr) => 
+            (curr.conversionRate > best.conversionRate) ? curr : best, 
+            activeBuckets[0]
+        );
+        $('#bestConversion').text(bestConv.name ? `${bestConv.name} (${formatPercentage(bestConv.conversionRate)})` : 'N/A');
+        
+        // Lowest CPL
+        const lowestCPL = activeBuckets.reduce((lowest, curr) => 
+            (curr.costPerLead < lowest.costPerLead && curr.costPerLead > 0) ? curr : lowest,
+            activeBuckets[0]
+        );
+        $('#lowestCPL').text(lowestCPL.name ? `${lowestCPL.name} (${formatCurrency(lowestCPL.costPerLead)})` : 'N/A');
+        
+        // Highest Volume
+        const highestVol = activeBuckets.reduce((highest, curr) => 
+            (curr.leads > highest.leads) ? curr : highest,
+            activeBuckets[0]
+        );
+        $('#highestVolume').text(highestVol.name ? `${highestVol.name} (${formatNumber(highestVol.leads)} leads)` : 'N/A');
+        
+        // Most Efficient CPA
+        const mostEfficient = activeBuckets.filter(b => b.cpa > 0).reduce((best, curr) => 
+            (curr.cpa < best.cpa) ? curr : best,
+            activeBuckets.find(b => b.cpa > 0) || activeBuckets[0]
+        );
+        $('#mostEfficient').text(mostEfficient && mostEfficient.cpa > 0 ? 
+            `${mostEfficient.name} (${formatCurrency(mostEfficient.cpa)})` : 'N/A');
+    }
+
+    // Export data
+    function exportData() {
+        const params = {
+            start_date: state.startDate,
+            end_date: state.endDate,
+            include_spam: state.includeSpam,
+            include_abandoned: state.includeAbandoned,
+            include_duplicate: state.includeDuplicate
+        };
+        
+        const queryString = $.param(params);
+        window.location.href = `/api/export?${queryString}`;
+    }
+
+    // Utility functions
+    function formatDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    function formatDisplayDate(dateStr) {
+    if (!dateStr) return '';
+    // Parse the date string and add timezone offset to ensure correct date
+    const parts = dateStr.split('-');
+    const date = new Date(parts[0], parts[1] - 1, parts[2]); // Month is 0-indexed
+    return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric',
+        timeZone: 'America/Los_Angeles' // Specify timezone to avoid UTC conversion issues
+    });
+}
+
+function formatDateTime(dateStr) {
+    if (!dateStr) return '-';
+    // If the dateStr includes time, parse it properly
+    const date = new Date(dateStr);
+    
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+        // Try parsing as date-only string
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+            const localDate = new Date(parts[0], parts[1] - 1, parts[2]);
+            return localDate.toLocaleString('en-US', { 
+                month: 'short', 
+                day: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit',
+                timeZone: 'America/Los_Angeles'
+            });
+        }
+        return '-';
+    }
+    
+    return date.toLocaleString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit',
+        timeZone: 'America/Los_Angeles'
+    });
+}
+
+    function formatCurrency(value) {
+        if (value === null || value === undefined || isNaN(value)) return '$0';
+        return '$' + Math.round(value).toLocaleString('en-US');
+    }
+
+    function formatNumber(value) {
+        if (value === null || value === undefined || isNaN(value)) return '0';
+        return Math.round(value).toLocaleString('en-US');
+    }
+
+    function formatPercentage(value) {
+        if (value === null || value === undefined || isNaN(value)) return '0%';
+        return (value * 100).toFixed(1) + '%';
+    }
+
+    function getStatusClass(status) {
+        const statusClasses = {
+            'New': 'bg-blue-100 text-blue-800',
+            'Contacted': 'bg-yellow-100 text-yellow-800',
+            'Qualified': 'bg-green-100 text-green-800',
+            'Converted': 'bg-green-100 text-green-800',
+            'Retained': 'bg-green-100 text-green-800',
+            'Retainer Sent': 'bg-amber-100 text-amber-800',
+            'Closed': 'bg-gray-100 text-gray-800',
+            'Converted DAI': 'bg-red-100 text-red-800',
+            'Turned Down': 'bg-red-100 text-red-800',
+            'Referred Out': 'bg-orange-100 text-orange-800',
+            'Unknown': 'bg-gray-100 text-gray-800'
+        };
+        return statusClasses[status] || 'bg-gray-100 text-gray-800';
+    }
+});
+</script>
+</body>
+</html>

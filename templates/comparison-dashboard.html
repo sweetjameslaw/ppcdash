@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comparison Dashboard - Sweet James</title>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Add your existing styles here or link to main.css */
+        .comparison-card {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        .comparison-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .delta-badge {
+            font-size: 0.75rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        .delta-up { background: #dcfce7; color: #16a34a; }
+        .delta-down { background: #fee2e2; color: #dc2626; }
+        .delta-neutral { background: #f3f4f6; color: #6b7280; }
+    </style>
+</head>
+<body x-data="comparisonDashboard()" x-init="init()">
+    <div class="min-h-screen bg-gray-50">
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b">
+            <div class="px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900">Performance Comparison</h1>
+                        <p class="text-sm text-gray-500 mt-1">
+                            Compare performance across different time periods
+                        </p>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <a href="/" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Comparison Controls -->
+        <div class="bg-white border-b px-6 py-4">
+            <div class="flex flex-wrap items-center gap-4">
+                <!-- Comparison Mode -->
+                <div class="flex items-center space-x-2">
+                    <label class="text-sm font-medium text-gray-700">Compare:</label>
+                    <select x-model="comparisonMode" @change="updateComparison()" 
+                            class="form-select rounded-md border-gray-300 text-sm">
+                        <option value="previous_period">Previous Period</option>
+                        <option value="year_over_year">Year over Year</option>
+                        <option value="month_over_month">Month over Month</option>
+                        <option value="custom">Custom Range</option>
+                    </select>
+                </div>
+
+                <!-- Primary Date Range -->
+                <div class="flex items-center space-x-2">
+                    <label class="text-sm font-medium text-gray-700">Primary Period:</label>
+                    <input type="date" x-model="primaryStart" @change="updateComparison()"
+                           class="form-input rounded-md border-gray-300 text-sm">
+                    <span class="text-gray-500">to</span>
+                    <input type="date" x-model="primaryEnd" @change="updateComparison()"
+                           class="form-input rounded-md border-gray-300 text-sm">
+                </div>
+
+                <!-- Custom Comparison Range (shown only when custom mode) -->
+                <div x-show="comparisonMode === 'custom'" class="flex items-center space-x-2">
+                    <label class="text-sm font-medium text-gray-700">Compare to:</label>
+                    <input type="date" x-model="compareStart" @change="updateComparison()"
+                           class="form-input rounded-md border-gray-300 text-sm">
+                    <span class="text-gray-500">to</span>
+                    <input type="date" x-model="compareEnd" @change="updateComparison()"
+                           class="form-input rounded-md border-gray-300 text-sm">
+                </div>
+
+                <!-- Quick Presets -->
+                <div class="flex items-center space-x-1">
+                    <button @click="setPreset('week')" class="btn btn-sm">This Week vs Last</button>
+                    <button @click="setPreset('month')" class="btn btn-sm">This Month vs Last</button>
+                    <button @click="setPreset('quarter')" class="btn btn-sm">This Quarter vs Last</button>
+                </div>
+
+                <!-- Refresh -->
+                <button @click="fetchComparisonData()" :disabled="isLoading"
+                        class="btn btn-primary ml-auto">
+                    <i class="fas fa-sync-alt" :class="{'fa-spin': isLoading}"></i>
+                    <span x-text="isLoading ? 'Loading...' : 'Refresh'"></span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="container mx-auto px-6 py-6">
+            <!-- Loading State -->
+            <div x-show="isLoading" class="flex justify-center py-20">
+                <div class="text-center">
+                    <div class="loader mx-auto mb-4"></div>
+                    <p class="text-gray-600">Fetching comparison data...</p>
+                </div>
+            </div>
+
+            <!-- Comparison Metrics Grid -->
+            <div x-show="!isLoading && comparisonData" class="space-y-6">
+                <!-- Key Metrics Comparison -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Total Spend -->
+                    <div class="comparison-card bg-white rounded-lg p-4 border">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="text-sm font-medium text-gray-500">Total Spend</div>
+                            <div class="delta-badge" 
+                                 :class="getMetricClass('total_spend')">
+                                <span x-text="getMetricChange('total_spend')"></span>
+                            </div>
+                        </div>
+                        <div class="text-2xl font-bold text-gray-900" 
+                             x-text="formatCurrency(getMetric('total_spend', 'primary'))"></div>
+                        <div class="text-sm text-gray-500 mt-1">
+                            vs <span x-text="formatCurrency(getMetric('total_spend', 'comparison'))"></span>
+                        </div>
+                        <div class="mt-2 text-xs">
+                            <span class="font-medium" x-text="getPeriodLabel('primary')"></span>
+                        </div>
+                    </div>
+
+                    <!-- Total Leads -->
+                    <div class="comparison-card bg-white rounded-lg p-4 border">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="text-sm font-medium text-gray-500">Total Leads</div>
+                            <div class="delta-badge" 
+                                 :class="getMetricClass('total_leads')">
+                                <span x-text="getMetricChange('total_leads')"></span>
+                            </div>
+                        </div>
+                        <div class="text-2xl font-bold text-gray-900" 
+                             x-text="formatNumber(getMetric('total_leads', 'primary'))"></div>
+                        <div class="text-sm text-gray-500 mt-1">
+                            vs <span x-text="formatNumber(getMetric('total_leads', 'comparison'))"></span>
+                        </div>
+                        <div class="mt-2 text-xs">
+                            <span class="font-medium">CPL: </span>
+                            <span x-text="formatCurrency(getMetric('avg_cpl', 'primary'))"></span>
+                            <span :class="getCPLTrend()" class="ml-1">
+                                (<span x-text="getMetricChange('avg_cpl')"></span>)
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Total Cases -->
+                    <div class="comparison-card bg-white rounded-lg p-4 border">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="text-sm font-medium text-gray-500">Total Cases</div>
+                            <div class="delta-badge" 
+                                 :class="getMetricClass('total_cases')">
+                                <span x-text="getMetricChange('total_cases')"></span>
+                            </div>
+                        </div>
+                        <div class="text-2xl font-bold text-gray-900" 
+                             x-text="formatNumber(getMetric('total_cases', 'primary'))"></div>
+                        <div class="text-sm text-gray-500 mt-1">
+                            vs <span x-text="formatNumber(getMetric('total_cases', 'comparison'))"></span>
+                        </div>
+                        <div class="mt-2 text-xs">
+                            <span class="font-medium">CPA: </span>
+                            <span x-text="formatCurrency(getMetric('avg_cpa', 'primary'))"></span>
+                            <span :class="getCPATrend()" class="ml-1">
+                                (<span x-text="getMetricChange('avg_cpa')"></span>)
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Conversion Rate -->
+                    <div class="comparison-card bg-white rounded-lg p-4 border">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="text-sm font-medium text-gray-500">Conversion Rate</div>
+                            <div class="delta-badge" 
+                                 :class="getMetricClass('conversion_rate', true)">
+                                <span x-text="getMetricChange('conversion_rate')"></span>
+                            </div>
+                        </div>
+                        <div class="text-2xl font-bold text-gray-900" 
+                             x-text="formatPercentage(getMetric('conversion_rate', 'primary'))"></div>
+                        <div class="text-sm text-gray-500 mt-1">
+                            vs <span x-text="formatPercentage(getMetric('conversion_rate', 'comparison'))"></span>
+                        </div>
+                        <div class="mt-2 text-xs">
+                            <span class="font-medium">Retainers: </span>
+                            <span x-text="formatNumber(getMetric('total_retainers', 'primary'))"></span>
+                            <span class="text-gray-500">
+                                vs <span x-text="formatNumber(getMetric('total_retainers', 'comparison'))"></span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bucket-Level Comparison Table -->
+                <div class="bg-white rounded-lg border overflow-hidden">
+                    <div class="px-6 py-4 border-b bg-gray-50">
+                        <h3 class="text-lg font-semibold text-gray-900">Campaign Bucket Comparison</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50 border-b">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                        Bucket
+                                    </th>
+                                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase" colspan="2">
+                                        Leads
+                                    </th>
+                                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase" colspan="2">
+                                        Spend
+                                    </th>
+                                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase" colspan="2">
+                                        Conv Rate
+                                    </th>
+                                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                                        Trend
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                <template x-for="bucket in getBucketComparisons()" :key="bucket.name">
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 text-sm font-medium text-gray-900" x-text="bucket.name"></td>
+                                        <td class="px-6 py-4 text-sm text-center">
+                                            <div x-text="bucket.leads.primary"></div>
+                                            <div class="text-xs text-gray-500" x-text="'vs ' + bucket.leads.comparison"></div>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm text-center">
+                                            <span class="delta-badge" :class="getBucketDeltaClass(bucket.leads)">
+                                                <span x-text="formatDelta(bucket.leads)"></span>
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm text-center">
+                                            <div x-text="formatCurrency(bucket.cost.primary)"></div>
+                                            <div class="text-xs text-gray-500" x-text="'vs ' + formatCurrency(bucket.cost.comparison)"></div>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm text-center">
+                                            <span class="delta-badge" :class="getBucketDeltaClass(bucket.cost, true)">
+                                                <span x-text="formatDelta(bucket.cost)"></span>
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm text-center">
+                                            <div x-text="formatPercentage(bucket.conversion_rate.primary)"></div>
+                                            <div class="text-xs text-gray-500" x-text="'vs ' + formatPercentage(bucket.conversion_rate.comparison)"></div>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm text-center">
+                                            <span class="delta-badge" :class="getBucketDeltaClass(bucket.conversion_rate)">
+                                                <span x-text="formatDelta(bucket.conversion_rate)"></span>
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm text-center">
+                                            <i class="fas" :class="getTrendIcon(bucket)"></i>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Comparison Charts -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Metrics Comparison Chart -->
+                    <div class="bg-white rounded-lg border p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Key Metrics Comparison</h3>
+                        <canvas id="metricsChart" width="400" height="200"></canvas>
+                    </div>
+
+                    <!-- Bucket Performance Chart -->
+                    <div class="bg-white rounded-lg border p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Bucket Performance Delta</h3>
+                        <canvas id="bucketChart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function comparisonDashboard() {
+        return {
+            comparisonMode: 'previous_period',
+            primaryStart: '',
+            primaryEnd: '',
+            compareStart: '',
+            compareEnd: '',
+            isLoading: false,
+            comparisonData: null,
+            metricsChart: null,
+            bucketChart: null,
+
+            init() {
+                // Set default dates (this week)
+                const today = new Date();
+                const weekStart = new Date(today);
+                weekStart.setDate(today.getDate() - today.getDay());
+                
+                this.primaryStart = this.formatDate(weekStart);
+                this.primaryEnd = this.formatDate(today);
+                
+                this.fetchComparisonData();
+            },
+
+            formatDate(date) {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            },
+
+            setPreset(preset) {
+                const today = new Date();
+                
+                switch(preset) {
+                    case 'week':
+                        const weekStart = new Date(today);
+                        weekStart.setDate(today.getDate() - today.getDay());
+                        this.primaryStart = this.formatDate(weekStart);
+                        this.primaryEnd = this.formatDate(today);
+                        this.comparisonMode = 'previous_period';
+                        break;
+                    case 'month':
+                        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+                        this.primaryStart = this.formatDate(monthStart);
+                        this.primaryEnd = this.formatDate(today);
+                        this.comparisonMode = 'month_over_month';
+                        break;
+                    case 'quarter':
+                        const quarter = Math.floor(today.getMonth() / 3);
+                        const quarterStart = new Date(today.getFullYear(), quarter * 3, 1);
+                        this.primaryStart = this.formatDate(quarterStart);
+                        this.primaryEnd = this.formatDate(today);
+                        this.comparisonMode = 'previous_period';
+                        break;
+                }
+                
+                this.fetchComparisonData();
+            },
+
+            async fetchComparisonData() {
+                this.isLoading = true;
+                
+                try {
+                    const params = new URLSearchParams({
+                        mode: this.comparisonMode,
+                        primary_start: this.primaryStart,
+                        primary_end: this.primaryEnd
+                    });
+                    
+                    if (this.comparisonMode === 'custom') {
+                        params.append('compare_start', this.compareStart);
+                        params.append('compare_end', this.compareEnd);
+                    }
+                    
+                    const response = await fetch(`/api/comparison-data?${params}`);
+                    this.comparisonData = await response.json();
+                    
+                    this.$nextTick(() => {
+                        this.updateCharts();
+                    });
+                } catch (error) {
+                    console.error('Error fetching comparison data:', error);
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+
+            updateComparison() {
+                if (this.primaryStart && this.primaryEnd) {
+                    this.fetchComparisonData();
+                }
+            },
+
+            getMetric(key, period) {
+                if (!this.comparisonData || !this.comparisonData.metrics) return 0;
+                return this.comparisonData.metrics[key]?.[period] || 0;
+            },
+
+            getMetricChange(key) {
+                if (!this.comparisonData || !this.comparisonData.metrics) return '0%';
+                const pct = this.comparisonData.metrics[key]?.pct_change || 0;
+                return pct >= 0 ? `+${pct}%` : `${pct}%`;
+            },
+
+            getMetricClass(key, inverse = false) {
+                if (!this.comparisonData || !this.comparisonData.metrics) return 'delta-neutral';
+                const trend = this.comparisonData.metrics[key]?.trend;
+                
+                if (inverse) {
+                    return trend === 'up' ? 'delta-down' : trend === 'down' ? 'delta-up' : 'delta-neutral';
+                }
+                
+                return trend === 'up' ? 'delta-up' : trend === 'down' ? 'delta-down' : 'delta-neutral';
+            },
+
+            getBucketComparisons() {
+                if (!this.comparisonData || !this.comparisonData.metrics?.buckets) return [];
+                return Object.entries(this.comparisonData.metrics.buckets).map(([name, data]) => ({
+                    name,
+                    ...data
+                }));
+            },
+
+            getBucketDeltaClass(metric, inverse = false) {
+                const pct = metric.pct_change || 0;
+                if (inverse) {
+                    return pct > 0 ? 'delta-down' : pct < 0 ? 'delta-up' : 'delta-neutral';
+                }
+                return pct > 0 ? 'delta-up' : pct < 0 ? 'delta-down' : 'delta-neutral';
+            },
+
+            formatDelta(metric) {
+                const pct = metric.pct_change || 0;
+                return pct >= 0 ? `+${pct}%` : `${pct}%`;
+            },
+
+            getTrendIcon(bucket) {
+                const leadsUp = bucket.leads.pct_change > 0;
+                const convUp = bucket.conversion_rate.pct_change > 0;
+                
+                if (leadsUp && convUp) return 'fa-arrow-trend-up text-green-500';
+                if (!leadsUp && !convUp) return 'fa-arrow-trend-down text-red-500';
+                return 'fa-minus text-gray-400';
+            },
+
+            getCPLTrend() {
+                return this.getMetricClass('avg_cpl', true);
+            },
+
+            getCPATrend() {
+                return this.getMetricClass('avg_cpa', true);
+            },
+
+            getPeriodLabel(period) {
+                if (!this.comparisonData) return '';
+                const data = this.comparisonData[`${period}_period`];
+                if (!data) return '';
+                
+                const start = new Date(data.start);
+                const end = new Date(data.end);
+                return `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`;
+            },
+
+            formatCurrency(value) {
+                return new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: 'USD',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                }).format(value);
+            },
+
+            formatNumber(value) {
+                return new Intl.NumberFormat('en-US').format(Math.round(value));
+            },
+
+            formatPercentage(value) {
+                return `${(value * 100).toFixed(1)}%`;
+            },
+
+            updateCharts() {
+                this.updateMetricsChart();
+                this.updateBucketChart();
+            },
+
+            updateMetricsChart() {
+                const ctx = document.getElementById('metricsChart');
+                if (!ctx) return;
+
+                if (this.metricsChart) {
+                    this.metricsChart.destroy();
+                }
+
+                const metrics = this.comparisonData?.metrics;
+                if (!metrics) return;
+
+                this.metricsChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Leads', 'Cases', 'Retainers', 'Conv Rate %'],
+                        datasets: [
+                            {
+                                label: 'Current Period',
+                                data: [
+                                    metrics.total_leads?.primary || 0,
+                                    metrics.total_cases?.primary || 0,
+                                    metrics.total_retainers?.primary || 0,
+                                    (metrics.conversion_rate?.primary || 0) * 100
+                                ],
+                                backgroundColor: '#3b82f6'
+                            },
+                            {
+                                label: 'Comparison Period',
+                                data: [
+                                    metrics.total_leads?.comparison || 0,
+                                    metrics.total_cases?.comparison || 0,
+                                    metrics.total_retainers?.comparison || 0,
+                                    (metrics.conversion_rate?.comparison || 0) * 100
+                                ],
+                                backgroundColor: '#94a3b8'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            },
+
+            updateBucketChart() {
+                const ctx = document.getElementById('bucketChart');
+                if (!ctx) return;
+
+                if (this.bucketChart) {
+                    this.bucketChart.destroy();
+                }
+
+                const buckets = this.getBucketComparisons();
+                if (!buckets.length) return;
+
+                this.bucketChart = new Chart(ctx, {
+                    type: 'horizontalBar',
+                    data: {
+                        labels: buckets.map(b => b.name),
+                        datasets: [{
+                            label: 'Lead Change %',
+                            data: buckets.map(b => b.leads.pct_change || 0),
+                            backgroundColor: buckets.map(b => 
+                                b.leads.pct_change > 0 ? '#10b981' : '#ef4444'
+                            )
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return value + '%';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+    }
+    </script>
+</body>
+</html>

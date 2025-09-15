@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sweet James - Annual Analytics Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        
+        :root {
+            --success: #16a34a;
+            --danger: #dc2626;
+            --warning: #ea580c;
+            --info: #2563eb;
+            --primary: #6366f1;
+            --secondary: #64748b;
+            --gray-50: #f8fafc;
+            --gray-100: #f1f5f9;
+            --gray-200: #e2e8f0;
+            --gray-300: #cbd5e1;
+            --gray-400: #94a3b8;
+            --gray-500: #64748b;
+            --gray-600: #475569;
+            --gray-700: #334155;
+            --gray-800: #1e293b;
+            --gray-900: #0f172a;
+            --brand-yellow: #f59e0b;
+        }
+        
+        body { 
+            background: var(--gray-50);
+            color: var(--gray-900);
+        }
+        
+        body.dark-mode { 
+            background: #0a0a0a;
+            color: #f8fafc;
+        }
+        
+        .card {
+            background: white;
+            border: 1px solid var(--gray-200);
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+            transition: all 0.2s ease;
+        }
+        
+        .dark-mode .card {
+            background: #1f2937;
+            border-color: #374151;
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            border: 1px solid var(--primary);
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-primary:hover {
+            background: #4f46e5;
+            border-color: #4f46e5;
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: var(--gray-700);
+            border: 1px solid var(--gray-300);
+            transition: all 0.2s ease;
+        }
+        
+        .btn-secondary:hover {
+            background: var(--gray-50);
+            border-color: var(--gray-400);
+        }
+        
+        .dark-mode .btn-secondary {
+            background: #1f2937;
+            color: #e5e7eb;
+            border-color: #374151;
+        }
+        
+        .dark-mode .btn-secondary:hover {
+            background: #374151;
+            border-color: #4b5563;
+        }
+        
+        .loader {
+            border: 3px solid #f3f4f6;
+            border-radius: 50%;
+            border-top: 3px solid var(--primary);
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .metric-card {
+            background: white;
+            border: 1px solid var(--gray-200);
+            position: relative;
+            transition: all 0.2s ease;
+        }
+        
+        .metric-card:hover {
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+        
+        .dark-mode .metric-card {
+            background: #1f2937;
+            border-color: #374151;
+        }
+        
+        .text-cost { color: var(--gray-700); }
+        .text-leads { color: var(--success); }
+        .text-cases { color: var(--info); }
+        .text-retainers { color: var(--primary); }
+        
+        .dark-mode .text-cost { color: #e5e7eb; }
+        .dark-mode .text-leads { color: #86efac; }
+        .dark-mode .text-cases { color: #93c5fd; }
+        .dark-mode .text-retainers { color: #c4b5fd; }
+        
+        .data-table {
+            background: white;
+            border: 1px solid var(--gray-200);
+        }
+        
+        .dark-mode .data-table {
+            background: #1f2937;
+            border-color: #374151;
+        }
+        
+        .table-header {
+            background: var(--gray-50);
+        }
+        
+        .dark-mode .table-header {
+            background: #111827;
+        }
+        
+        /* Expandable row styles */
+        .expandable-row {
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        
+        .expandable-row:hover {
+            background: var(--gray-50);
+        }
+        
+        .dark-mode .expandable-row:hover {
+            background: #374151;
+        }
+        
+        .chevron {
+            transition: transform 0.3s ease;
+            display: inline-block;
+        }
+        
+        .chevron.rotated {
+            transform: rotate(90deg);
+        }
+        
+        .state-breakdown {
+            display: none;
+            animation: slideDown 0.3s ease;
+        }
+        
+        .state-breakdown.show {
+            display: table-row;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .state-row {
+            background: var(--gray-50);
+        }
+        
+        .dark-mode .state-row {
+            background: #111827;
+        }
+        
+        /* Badge styles */
+        .badge-success {
+            background: rgb(34 197 94 / 0.1);
+            color: var(--success);
+            border: 1px solid rgb(34 197 94 / 0.2);
+        }
+        
+        .badge-info {
+            background: rgb(37 99 235 / 0.1);
+            color: var(--info);
+            border: 1px solid rgb(37 99 235 / 0.2);
+        }
+        
+        .badge-warning {
+            background: rgb(234 88 12 / 0.1);
+            color: var(--warning);
+            border: 1px solid rgb(234 88 12 / 0.2);
+        }
+        
+        .dark-mode .badge-success {
+            background: rgb(34 197 94 / 0.3);
+            color: #86efac;
+        }
+        
+        .dark-mode .badge-info {
+            background: rgb(37 99 235 / 0.3);
+            color: #93c5fd;
+        }
+        
+        .dark-mode .badge-warning {
+            background: rgb(234 88 12 / 0.3);
+            color: #fdba74;
+        }
+        
+        /* Scrollbar styles */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--gray-100);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--gray-400);
+            border-radius: 3px;
+        }
+        
+        .dark-mode ::-webkit-scrollbar-track {
+            background: #111827;
+        }
+        
+        .dark-mode ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+        }
+    </style>
+</head>
+<body class="min-h-screen" :class="{'dark-mode': darkMode}" x-data="annualAnalyticsApp()" x-init="init()">
+    
+    <!-- Header -->
+    <header class="card border-b sticky top-0 z-30">
+        <div class="px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center">
+                        <span class="font-bold text-white text-sm">SJ</span>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-900 dark-mode:text-white">Annual Analytics Dashboard</h1>
+                        <p class="text-sm text-gray-500 dark-mode:text-gray-400 mt-1">
+                            Year: <span class="font-medium" x-text="selectedYear"></span> • 
+                            <span x-text="dataSource"></span>
+                            <span x-show="!includeExcluded" class="ml-2 px-2 py-0.5 text-xs badge-success rounded-full">
+                                Filtered Data
+                            </span>
+                            <span x-show="includeExcluded" class="ml-2 px-2 py-0.5 text-xs badge-warning rounded-full">
+                                Including Excluded Types
+                            </span>
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <!-- Year Selector -->
+                    <select x-model="selectedYear" 
+                            @change="fetchYearData()"
+                            class="px-3 py-2 border border-gray-300 dark-mode:border-gray-600 rounded-md text-sm bg-white dark-mode:bg-gray-700 dark-mode:text-white">
+                        <template x-for="year in availableYears" :key="year">
+                            <option :value="year" x-text="year"></option>
+                        </template>
+                    </select>
+                    
+                    <!-- State Filter Buttons -->
+                    <div class="flex items-center space-x-1 bg-gray-100 dark-mode:bg-gray-800 rounded-md p-1">
+                        <button @click="filterByState('all')" 
+                                :class="{'bg-primary text-white': stateFilter === 'all', 'text-gray-600 dark-mode:text-gray-400': stateFilter !== 'all'}"
+                                class="px-3 py-1 rounded text-sm font-medium transition-all">
+                            All States
+                        </button>
+                        <button @click="filterByState('CA')" 
+                                :class="{'bg-primary text-white': stateFilter === 'CA', 'text-gray-600 dark-mode:text-gray-400': stateFilter !== 'CA'}"
+                                class="px-3 py-1 rounded text-sm font-medium transition-all">
+                            CA
+                        </button>
+                        <button @click="filterByState('AZ')" 
+                                :class="{'bg-primary text-white': stateFilter === 'AZ', 'text-gray-600 dark-mode:text-gray-400': stateFilter !== 'AZ'}"
+                                class="px-3 py-1 rounded text-sm font-medium transition-all">
+                            AZ
+                        </button>
+                        <button @click="filterByState('GA')" 
+                                :class="{'bg-primary text-white': stateFilter === 'GA', 'text-gray-600 dark-mode:text-gray-400': stateFilter !== 'GA'}"
+                                class="px-3 py-1 rounded text-sm font-medium transition-all">
+                            GA
+                        </button>
+                        <button @click="filterByState('TX')" 
+                                :class="{'bg-primary text-white': stateFilter === 'TX', 'text-gray-600 dark-mode:text-gray-400': stateFilter !== 'TX'}"
+                                class="px-3 py-1 rounded text-sm font-medium transition-all">
+                            TX
+                        </button>
+                    </div>
+                    
+                    <!-- Exclusion Filters -->
+                    <div class="flex items-center space-x-3 px-3 py-1 bg-gray-100 dark-mode:bg-gray-800 rounded-md">
+                        <label class="flex items-center space-x-2 text-sm cursor-pointer">
+                            <input type="checkbox" x-model="includeSpam" @change="fetchYearData()" class="rounded">
+                            <span class="text-gray-700 dark-mode:text-gray-300">Include Spam</span>
+                        </label>
+                        <label class="flex items-center space-x-2 text-sm cursor-pointer">
+                            <input type="checkbox" x-model="includeAbandoned" @change="fetchYearData()" class="rounded">
+                            <span class="text-gray-700 dark-mode:text-gray-300">Include Abandoned</span>
+                        </label>
+                        <label class="flex items-center space-x-2 text-sm cursor-pointer">
+                            <input type="checkbox" x-model="includeDuplicate" @change="fetchYearData()" class="rounded">
+                            <span class="text-gray-700 dark-mode:text-gray-300">Include Duplicate</span>
+                        </label>
+                    </div>
+                    
+                    <!-- Actions -->
+                    <button @click="refreshData()" 
+                            :disabled="isRefreshing"
+                            class="btn-secondary px-3 py-2 rounded-md text-sm">
+                        <i class="fas fa-sync-alt" :class="{'fa-spin': isRefreshing}"></i>
+                        <span class="ml-2" x-text="isRefreshing ? 'Refreshing...' : 'Refresh'"></span>
+                    </button>
+                    
+                    <button @click="exportToExcel()" 
+                            class="btn-primary px-4 py-2 rounded-md text-sm">
+                        <i class="fas fa-download mr-2"></i>Export
+                    </button>
+                    
+                    <!-- Navigation -->
+                    <div class="flex items-center space-x-2">
+                        <a href="/" class="btn-secondary px-3 py-2 rounded-md text-sm">
+                            <i class="fas fa-chart-bar mr-2"></i>Dashboard
+                        </a>
+                        <a href="/forecasting" class="btn-secondary px-3 py-2 rounded-md text-sm">
+                            <i class="fas fa-chart-line mr-2"></i>Forecasting
+                        </a>
+                        <button @click="toggleDarkMode()" class="btn-secondary px-3 py-2 rounded-md text-sm">
+                            <i class="fas" :class="darkMode ? 'fa-sun' : 'fa-moon'"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+    
+    <div class="container mx-auto p-6">
+        <!-- Loading State -->
+        <div x-show="isLoading" class="flex justify-center items-center py-20">
+            <div class="text-center">
+                <div class="loader mx-auto mb-4"></div>
+                <p class="text-lg font-medium">Loading annual data...</p>
+                <p class="text-sm text-gray-500 mt-2" x-text="loadingMessage"></p>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div x-show="!isLoading" x-cloak class="space-y-6">
+            
+            <!-- Annual Summary Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div class="metric-card rounded-lg p-6">
+                    <div class="text-xs font-medium uppercase text-gray-500 dark-mode:text-gray-400 mb-1">Total Spend</div>
+                    <div class="text-2xl font-bold text-cost" x-text="formatCurrency(getFilteredSummary().spend)"></div>
+                    <div class="text-xs text-gray-500 dark-mode:text-gray-400 mt-1">
+                        Avg/Month: <span x-text="formatCurrency(getFilteredSummary().spend / getActiveMonths())"></span>
+                    </div>
+                </div>
+                
+                <div class="metric-card rounded-lg p-6">
+                    <div class="text-xs font-medium uppercase text-gray-500 dark-mode:text-gray-400 mb-1">Total Leads</div>
+                    <div class="text-2xl font-bold text-leads" x-text="formatNumber(getFilteredSummary().leads)"></div>
+                    <div class="text-xs text-gray-500 dark-mode:text-gray-400 mt-1">
+                        Avg CPL: <span x-text="formatCurrency(getFilteredSummary().cpl)"></span>
+                    </div>
+                </div>
+                
+                <div class="metric-card rounded-lg p-6">
+                    <div class="text-xs font-medium uppercase text-gray-500 dark-mode:text-gray-400 mb-1">Total Cases</div>
+                    <div class="text-2xl font-bold text-cases" x-text="formatNumber(getFilteredSummary().cases)"></div>
+                    <div class="text-xs text-gray-500 dark-mode:text-gray-400 mt-1">
+                        Avg CPA: <span x-text="formatCurrency(getFilteredSummary().cpa)"></span>
+                    </div>
+                </div>
+                
+                <div class="metric-card rounded-lg p-6">
+                    <div class="text-xs font-medium uppercase text-gray-500 dark-mode:text-gray-400 mb-1">Total Retainers</div>
+                    <div class="text-2xl font-bold text-retainers" x-text="formatNumber(getFilteredSummary().retainers)"></div>
+                    <div class="text-xs text-gray-500 dark-mode:text-gray-400 mt-1">
+                        Avg CPR: <span x-text="formatCurrency(getFilteredSummary().cpr)"></span>
+                    </div>
+                </div>
+                
+                <div class="metric-card rounded-lg p-6">
+                    <div class="text-xs font-medium uppercase text-gray-500 dark-mode:text-gray-400 mb-1">Avg Conv Rate</div>
+                    <div class="text-2xl font-bold" :class="getConversionRateColor(getFilteredSummary().conversionRate)" x-text="formatPercentage(getFilteredSummary().conversionRate)"></div>
+                    <div class="text-xs text-gray-500 dark-mode:text-gray-400 mt-1">
+                        In Practice: <span x-text="formatNumber(getFilteredSummary().inPractice)"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Performance Analysis -->
+            <div class="card rounded-lg p-6">
+                <h2 class="text-lg font-semibold text-gray-900 dark-mode:text-white mb-4">Performance Analysis</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="p-4 bg-green-50 dark-mode:bg-green-900/20 rounded-lg">
+                        <div class="text-xs font-medium text-green-800 dark-mode:text-green-400 mb-1">Best CPL Month</div>
+                        <div class="font-semibold text-green-900 dark-mode:text-green-300" x-text="performanceAnalysis.best_cpl_month?.month || 'N/A'"></div>
+                        <div class="text-xs text-green-700 dark-mode:text-green-400" x-text="formatCurrency(performanceAnalysis.best_cpl_month?.summary?.cpl || 0)"></div>
+                    </div>
+                    
+                    <div class="p-4 bg-blue-50 dark-mode:bg-blue-900/20 rounded-lg">
+                        <div class="text-xs font-medium text-blue-800 dark-mode:text-blue-400 mb-1">Best Conversion Month</div>
+                        <div class="font-semibold text-blue-900 dark-mode:text-blue-300" x-text="performanceAnalysis.best_conversion_month?.month || 'N/A'"></div>
+                        <div class="text-xs text-blue-700 dark-mode:text-blue-400" x-text="formatPercentage(performanceAnalysis.best_conversion_month?.summary?.conversion_rate || 0)"></div>
+                    </div>
+                    
+                    <div class="p-4 bg-purple-50 dark-mode:bg-purple-900/20 rounded-lg">
+                        <div class="text-xs font-medium text-purple-800 dark-mode:text-purple-400 mb-1">Highest Volume Month</div>
+                        <div class="font-semibold text-purple-900 dark-mode:text-purple-300" x-text="performanceAnalysis.highest_volume_month?.month || 'N/A'"></div>
+                        <div class="text-xs text-purple-700 dark-mode:text-purple-400">
+                            <span x-text="formatNumber(performanceAnalysis.highest_volume_month?.summary?.leads || 0)"></span> leads
+                        </div>
+                    </div>
+                    
+                    <div class="p-4 bg-orange-50 dark-mode:bg-orange-900/20 rounded-lg">
+                        <div class="text-xs font-medium text-orange-800 dark-mode:text-orange-400 mb-1">Needs Attention</div>
+                        <div class="font-semibold text-orange-900 dark-mode:text-orange-300" x-text="performanceAnalysis.worst_conversion_month?.month || 'N/A'"></div>
+                        <div class="text-xs text-orange-700 dark-mode:text-orange-400" x-text="formatPercentage(performanceAnalysis.worst_conversion_month?.summary?.conversion_rate || 0)"></div>
+                    </div>
+                </div>
+                
+                <!-- Monthly Averages -->
+                <div class="mt-6 pt-6 border-t border-gray-200 dark-mode:border-gray-700">
+                    <h3 class="text-md font-semibold text-gray-900 dark-mode:text-white mb-3">Monthly Averages</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                            <div class="text-xs text-gray-500 dark-mode:text-gray-400">Avg Monthly Spend</div>
+                            <div class="text-lg font-semibold text-gray-900 dark-mode:text-white" x-text="formatCurrency(performanceAnalysis.avg_monthly_spend)"></div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 dark-mode:text-gray-400">Avg Monthly Leads</div>
+                            <div class="text-lg font-semibold text-gray-900 dark-mode:text-white" x-text="formatNumber(performanceAnalysis.avg_monthly_leads)"></div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 dark-mode:text-gray-400">Avg Monthly Retainers</div>
+                            <div class="text-lg font-semibold text-gray-900 dark-mode:text-white" x-text="formatNumber(performanceAnalysis.avg_monthly_retainers)"></div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 dark-mode:text-gray-400">Target CPL</div>
+                            <div class="text-lg font-semibold" :class="annualSummary.avg_cpl <= 1250 ? 'text-green-600 dark-mode:text-green-400' : 'text-orange-600 dark-mode:text-orange-400'">$1,250</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Detailed Monthly Table with State Breakdowns -->
+            <div class="data-table rounded-lg overflow-hidden">
+                <div class="p-6 border-b border-gray-200 dark-mode:border-gray-700">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-900 dark-mode:text-white">Detailed Monthly Breakdown</h3>
+                        <div class="flex items-center space-x-2">
+                            <button @click="expandAllMonths()" class="text-sm text-blue-600 hover:text-blue-700 dark-mode:text-blue-400">
+                                <i class="fas fa-expand-arrows-alt mr-1"></i>Expand All
+                            </button>
+                            <button @click="collapseAllMonths()" class="text-sm text-blue-600 hover:text-blue-700 dark-mode:text-blue-400">
+                                <i class="fas fa-compress-arrows-alt mr-1"></i>Collapse All
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="table-header">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark-mode:text-gray-300">Month</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark-mode:text-gray-300">Spend</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark-mode:text-gray-300">Leads</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark-mode:text-gray-300">CPL</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark-mode:text-gray-300">Cases</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark-mode:text-gray-300">CPA</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark-mode:text-gray-300">Retainers</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark-mode:text-gray-300">CPR</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark-mode:text-gray-300">Conv %</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark-mode:text-gray-300">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 dark-mode:divide-gray-700">
+                            <template x-for="(month, index) in getFilteredMonthlyData()" :key="month.month_num + '_' + stateFilter">
+                                <>
+                                    <!-- Main Month Row -->
+                                    <tr class="expandable-row" 
+                                        @click="toggleMonthExpansion(index)"
+                                        :class="{'bg-blue-50 dark-mode:bg-blue-900/20': month.is_current}">
+                                        <td class="px-4 py-3 text-sm font-medium text-gray-900 dark-mode:text-white">
+                                            <i class="fas fa-chevron-right chevron text-gray-400 mr-2" 
+                                               :class="{'rotated': expandedMonths.includes(index)}"
+                                               x-show="month.buckets && month.buckets.length > 0"></i>
+                                            <span x-text="month.month"></span>
+                                            <span x-show="stateFilter !== 'all'" class="ml-2 text-xs text-gray-500">
+                                                (<span x-text="stateFilter"></span> only)
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-gray-700 dark-mode:text-gray-300" x-text="formatCurrency(month.summary.spend)"></td>
+                                        <td class="px-4 py-3 text-sm text-gray-700 dark-mode:text-gray-300" x-text="formatNumber(month.summary.leads)"></td>
+                                        <td class="px-4 py-3 text-sm" :class="getCPLColor(month.summary.cpl)" x-text="formatCurrency(month.summary.cpl)"></td>
+                                        <td class="px-4 py-3 text-sm text-gray-700 dark-mode:text-gray-300" x-text="formatNumber(month.summary.cases)"></td>
+                                        <td class="px-4 py-3 text-sm text-gray-700 dark-mode:text-gray-300" x-text="formatCurrency(month.summary.cpa)"></td>
+                                        <td class="px-4 py-3 text-sm text-gray-700 dark-mode:text-gray-300" x-text="formatNumber(month.summary.retainers)"></td>
+                                        <td class="px-4 py-3 text-sm text-gray-700 dark-mode:text-gray-300" x-text="formatCurrency(month.summary.cpr)"></td>
+                                        <td class="px-4 py-3 text-sm" :class="getConversionColor(month.summary.conversion_rate)" x-text="formatPercentage(month.summary.conversion_rate)"></td>
+                                        <td class="px-4 py-3 text-sm">
+                                            <span x-show="month.is_current" class="px-2 py-1 text-xs badge-info rounded-full">Current</span>
+                                            <span x-show="month.is_future" class="px-2 py-1 text-xs bg-gray-100 text-gray-800 dark-mode:bg-gray-600 dark-mode:text-gray-200 rounded-full">Future</span>
+                                            <span x-show="!month.is_current && !month.is_future" class="px-2 py-1 text-xs badge-success rounded-full">Complete</span>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- State/Bucket Breakdown Rows -->
+                                    <template x-if="getStateBreakdown(month).length > 0">
+                                        <template x-for="state in getStateBreakdown(month)" :key="state.name">
+                                            <tr class="state-breakdown state-row" 
+                                                :class="{'show': expandedMonths.includes(index)}"
+                                                :data-month="index">
+                                                <td class="px-4 py-2 pl-12 text-sm text-gray-600 dark-mode:text-gray-400">
+                                                    <i class="fas fa-map-marker-alt mr-2 text-gray-400"></i>
+                                                    <span class="font-medium" x-text="state.name"></span>
+                                                    <span class="text-xs opacity-75 ml-2">(<span x-text="state.bucketCount"></span> <span x-text="state.bucketCount === 1 ? 'bucket' : 'buckets'"></span>)</span>
+                                                </td>
+                                                <td class="px-4 py-2 text-sm text-gray-600 dark-mode:text-gray-400" x-text="formatCurrency(state.spend)"></td>
+                                                <td class="px-4 py-2 text-sm text-gray-600 dark-mode:text-gray-400" x-text="formatNumber(state.leads)"></td>
+                                                <td class="px-4 py-2 text-sm text-gray-600 dark-mode:text-gray-400" x-text="formatCurrency(state.cpl)"></td>
+                                                <td class="px-4 py-2 text-sm text-gray-600 dark-mode:text-gray-400" x-text="formatNumber(state.cases)"></td>
+                                                <td class="px-4 py-2 text-sm text-gray-600 dark-mode:text-gray-400" x-text="formatCurrency(state.cpa)"></td>
+                                                <td class="px-4 py-2 text-sm text-gray-600 dark-mode:text-gray-400" x-text="formatNumber(state.retainers)"></td>
+                                                <td class="px-4 py-2 text-sm text-gray-600 dark-mode:text-gray-400" x-text="formatCurrency(state.cpr)"></td>
+                                                <td class="px-4 py-2 text-sm text-gray-600 dark-mode:text-gray-400" x-text="formatPercentage(state.conversionRate)"></td>
+                                                <td class="px-4 py-2 text-sm">
+                                                    <span :class="state.conversionRate >= 0.20 ? 'text-green-600 dark-mode:text-green-400' : state.conversionRate >= 0.15 ? 'text-blue-600 dark-mode:text-blue-400' : 'text-orange-600 dark-mode:text-orange-400'" 
+                                                          class="text-xs font-medium">
+                                                        <span x-text="state.conversionRate >= 0.20 ? '✓ Good' : state.conversionRate >= 0.15 ? '→ Fair' : '! Needs Work'"></span>
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </template>
+                                    
+                                    <!-- Fallback: Show raw buckets if no state breakdown -->
+                                    <template x-if="getStateBreakdown(month).length === 0 && month.buckets && month.buckets.length > 0">
+                                        <template x-for="bucket in month.buckets" :key="bucket.name">
+                                            <tr class="state-breakdown state-row" 
+                                                :class="{'show': expandedMonths.includes(index)}"
+                                                :data-month="index">
+                                                <td class="px-4 py-2 pl-12 text-sm text-gray-600 dark-mode:text-gray-400">
+                                                    <span class="font-medium" x-text="bucket.name"></span>
+                                                </td>
+                                                <td class="px-4 py-2 text-sm text-gray-600 dark-mode:text-gray-400" x-text="formatCurrency(bucket.cost || 0)"></td>
+                                                <td class="px-4 py-2 text-sm text-gray-600 dark-mode:text-gray-400" x-text="formatNumber(bucket.leads || 0)"></td>
+                                                <td class="px-4 py-2 text-sm text-gray-600 dark-mode:text-gray-400" x-text="formatCurrency(bucket.costPerLead || 0)"></td>
+                                                <td class="px-4 py-2 text-sm text-gray-600 dark-mode:text-gray-400" x-text="formatNumber(bucket.cases || 0)"></td>
+                                                <td class="px-4 py-2 text-sm text-gray-600 dark-mode:text-gray-400" x-text="formatCurrency(bucket.cpa || 0)"></td>
+                                                <td class="px-4 py-2 text-sm text-gray-600 dark-mode:text-gray-400" x-text="formatNumber(bucket.retainers || 0)"></td>
+                                                <td class="px-4 py-2 text-sm text-gray-600 dark-mode:text-gray-400" x-text="formatCurrency(bucket.costPerRetainer || 0)"></td>
+                                                <td class="px-4 py-2 text-sm text-gray-600 dark-mode:text-gray-400" x-text="formatPercentage(bucket.conversionRate || 0)"></td>
+                                                <td class="px-4 py-2 text-sm text-gray-600 dark-mode:text-gray-400">
+                                                    <span class="text-xs opacity-75">Bucket</span>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </template>
+                                </>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+    function annualAnalyticsApp() {
+        return {
+            // State
+            selectedYear: new Date().getFullYear(),
+            availableYears: [],
+            isLoading: false,
+            isRefreshing: false,
+            loadingMessage: 'Fetching data...',
+            darkMode: false,
+            expandedMonths: [],
+            stateFilter: 'all',
+            
+            // Exclusion filters
+            includeSpam: false,
+            includeAbandoned: false,
+            includeDuplicate: false,
+            includeExcluded: false,
+            
+            // Data
+            monthlyData: [],
+            annualSummary: {},
+            performanceAnalysis: {},
+            dataSource: 'Demo Data',
+            
+            // Initialize
+            init() {
+                // Set available years
+                const currentYear = new Date().getFullYear();
+                this.availableYears = [currentYear - 2, currentYear - 1, currentYear];
+                
+                // Check dark mode preference
+                this.darkMode = localStorage.getItem('darkMode') === 'true';
+                
+                // Watch for exclusion filter changes
+                this.$watch('includeSpam', () => this.updateExcludedStatus());
+                this.$watch('includeAbandoned', () => this.updateExcludedStatus());
+                this.$watch('includeDuplicate', () => this.updateExcludedStatus());
+                
+                // Fetch initial data
+                this.fetchYearData();
+            },
+            
+            updateExcludedStatus() {
+                this.includeExcluded = this.includeSpam || this.includeAbandoned || this.includeDuplicate;
+            },
+            
+            // Filter by state
+            filterByState(state) {
+                this.stateFilter = state;
+                this.expandedMonths = []; // Reset expanded state when filtering
+            },
+            
+            // Get filtered monthly data
+            getFilteredMonthlyData() {
+                if (this.stateFilter === 'all') {
+                    return this.monthlyData;
+                }
+                
+                // Filter buckets by state and recalculate summaries
+                return this.monthlyData.map(month => {
+                    const filteredBuckets = (month.buckets || []).filter(bucket => {
+                        const bucketState = this.getStateFromBucket(bucket.name);
+                        return bucketState === this.stateFilter;
+                    });
+                    
+                    // Recalculate summary for filtered buckets
+                    const summary = {
+                        spend: 0,
+                        leads: 0,
+                        cases: 0,
+                        retainers: 0,
+                        in_practice: 0,
+                        unqualified: 0
+                    };
+                    
+                    filteredBuckets.forEach(bucket => {
+                        summary.spend += bucket.cost || 0;  // Use 'cost' not 'spend'
+                        summary.leads += bucket.leads || 0;
+                        summary.cases += bucket.cases || 0;
+                        summary.retainers += bucket.retainers || 0;
+                        summary.in_practice += bucket.inPractice || 0;  // Use 'inPractice'
+                        summary.unqualified += bucket.unqualified || 0;
+                    });
+                    
+                    // Calculate metrics
+                    summary.cpl = summary.leads > 0 ? summary.spend / summary.leads : 0;
+                    summary.cpa = summary.cases > 0 ? summary.spend / summary.cases : 0;
+                    summary.cpr = summary.retainers > 0 ? summary.spend / summary.retainers : 0;
+                    summary.conversion_rate = summary.in_practice > 0 ? summary.retainers / summary.in_practice : 0;
+                    
+                    return {
+                        ...month,
+                        buckets: filteredBuckets,
+                        summary: summary
+                    };
+                });
+            },
+            
+            // Get filtered summary
+            getFilteredSummary() {
+                if (this.stateFilter === 'all') {
+                    return {
+                        spend: this.annualSummary.total_spend || 0,
+                        leads: this.annualSummary.total_leads || 0,
+                        cases: this.annualSummary.total_cases || 0,
+                        retainers: this.annualSummary.total_retainers || 0,
+                        inPractice: this.annualSummary.total_in_practice || 0,
+                        cpl: this.annualSummary.avg_cpl || 0,
+                        cpa: this.annualSummary.avg_cpa || 0,
+                        cpr: this.annualSummary.avg_cpr || 0,
+                        conversionRate: this.annualSummary.avg_conversion_rate || 0
+                    };
+                }
+                
+                // Calculate totals for filtered state
+                const filteredData = this.getFilteredMonthlyData();
+                let totals = {
+                    spend: 0,
+                    leads: 0,
+                    cases: 0,
+                    retainers: 0,
+                    inPractice: 0
+                };
+                
+                filteredData.forEach(month => {
+                    totals.spend += month.summary.spend || 0;
+                    totals.leads += month.summary.leads || 0;
+                    totals.cases += month.summary.cases || 0;
+                    totals.retainers += month.summary.retainers || 0;
+                    totals.inPractice += month.summary.in_practice || 0;
+                });
+                
+                return {
+                    ...totals,
+                    cpl: totals.leads > 0 ? totals.spend / totals.leads : 0,
+                    cpa: totals.cases > 0 ? totals.spend / totals.cases : 0,
+                    cpr: totals.retainers > 0 ? totals.spend / totals.retainers : 0,
+                    conversionRate: totals.inPractice > 0 ? totals.retainers / totals.inPractice : 0
+                };
+            },
+            
+            // Fetch data
+            async fetchYearData() {
+                this.isLoading = true;
+                this.loadingMessage = `Loading ${this.selectedYear} data...`;
+                this.expandedMonths = []; // Reset expanded state
+                
+                try {
+                    const params = new URLSearchParams({
+                        year: this.selectedYear,
+                        include_spam: this.includeSpam,
+                        include_abandoned: this.includeAbandoned,
+                        include_duplicate: this.includeDuplicate
+                    });
+                    
+                    const response = await fetch(`/api/annual-data?${params}`);
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        this.monthlyData = data.monthly_data || [];
+                        this.annualSummary = data.annual_summary || {};
+                        this.performanceAnalysis = data.performance_analysis || {};
+                        this.dataSource = data.data_source || 'Demo Data';
+                    }
+                } catch (error) {
+                    console.error('Error fetching annual data:', error);
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+            
+            // Refresh data
+            async refreshData() {
+                this.isRefreshing = true;
+                await this.fetchYearData();
+                this.isRefreshing = false;
+            },
+            
+            // Toggle month expansion
+            toggleMonthExpansion(index) {
+                if (this.expandedMonths.includes(index)) {
+                    this.expandedMonths = this.expandedMonths.filter(i => i !== index);
+                } else {
+                    this.expandedMonths.push(index);
+                }
+            },
+            
+            // Expand all months
+            expandAllMonths() {
+                this.expandedMonths = this.monthlyData.map((_, index) => index);
+            },
+            
+            // Collapse all months
+            collapseAllMonths() {
+                this.expandedMonths = [];
+            },
+            
+            // Get state from bucket name
+            getStateFromBucket(bucketName) {
+                const name = bucketName.toLowerCase();
+                if (name.includes('california')) return 'CA';
+                if (name.includes('arizona')) return 'AZ';
+                if (name.includes('georgia')) return 'GA';
+                if (name.includes('texas')) return 'TX';
+                return null;
+            },
+            
+            // Get active months count
+            getActiveMonths() {
+                return this.monthlyData.filter(m => !m.is_future).length || 1;
+            },
+            
+            // Get color classes
+            getCPLColor(cpl) {
+                if (cpl <= 1000) return 'text-green-600 dark-mode:text-green-400';
+                if (cpl <= 1250) return 'text-blue-600 dark-mode:text-blue-400';
+                if (cpl <= 1500) return 'text-orange-600 dark-mode:text-orange-400';
+                return 'text-red-600 dark-mode:text-red-400';
+            },
+            
+            getConversionColor(rate) {
+                const percentage = rate < 1 ? rate * 100 : rate;
+                if (percentage >= 25) return 'text-green-600 dark-mode:text-green-400';
+                if (percentage >= 20) return 'text-blue-600 dark-mode:text-blue-400';
+                if (percentage >= 15) return 'text-orange-600 dark-mode:text-orange-400';
+                return 'text-red-600 dark-mode:text-red-400';
+            },
+            
+            getConversionRateColor(rate) {
+                if (rate === undefined) rate = this.annualSummary.avg_conversion_rate || 0;
+                return this.getConversionColor(rate);
+            },
+            
+            // Export to Excel
+            exportToExcel() {
+                const exportData = [];
+                
+                // Add monthly data with bucket breakdowns
+                this.getFilteredMonthlyData().forEach(month => {
+                    // Add month summary row
+                    exportData.push({
+                        'Type': 'Month Total',
+                        'Month': month.month,
+                        'Spend': month.summary.spend,
+                        'Leads': month.summary.leads,
+                        'CPL': month.summary.cpl,
+                        'Cases': month.summary.cases,
+                        'CPA': month.summary.cpa,
+                        'Retainers': month.summary.retainers,
+                        'CPR': month.summary.cpr,
+                        'In Practice': month.summary.in_practice,
+                        'Conversion Rate': month.summary.conversion_rate,
+                        'Status': month.is_current ? 'Current' : month.is_future ? 'Future' : 'Complete'
+                    });
+                    
+                    // Add bucket breakdown rows
+                    (month.buckets || []).forEach(bucket => {
+                        exportData.push({
+                            'Type': 'Bucket',
+                            'Month': `  - ${bucket.name}`,
+                            'Spend': bucket.cost,
+                            'Leads': bucket.leads,
+                            'CPL': bucket.costPerLead,
+                            'Cases': bucket.cases,
+                            'CPA': bucket.cpa,
+                            'Retainers': bucket.retainers,
+                            'CPR': bucket.costPerRetainer,
+                            'In Practice': bucket.inPractice,
+                            'Conversion Rate': bucket.conversionRate,
+                            'Status': this.getStateFromBucket(bucket.name) || 'Unknown'
+                        });
+                    });
+                });
+                
+                // Add annual summary
+                const summary = this.getFilteredSummary();
+                exportData.push({
+                    'Type': 'ANNUAL TOTAL',
+                    'Month': '',
+                    'Spend': summary.spend,
+                    'Leads': summary.leads,
+                    'CPL': summary.cpl,
+                    'Cases': summary.cases,
+                    'CPA': summary.cpa,
+                    'Retainers': summary.retainers,
+                    'CPR': summary.cpr,
+                    'In Practice': summary.inPractice,
+                    'Conversion Rate': summary.conversionRate,
+                    'Status': 'Summary'
+                });
+                
+                // Create workbook
+                const ws = XLSX.utils.json_to_sheet(exportData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Annual Analytics');
+                
+                // Generate filename
+                const stateLabel = this.stateFilter !== 'all' ? `_${this.stateFilter}` : '';
+                const filterLabel = this.includeExcluded ? '_all_types' : '_filtered';
+                const filename = `annual_analytics_${this.selectedYear}${stateLabel}${filterLabel}.xlsx`;
+                
+                // Save file
+                XLSX.writeFile(wb, filename);
+            },
+            
+            // Toggle dark mode
+            toggleDarkMode() {
+                this.darkMode = !this.darkMode;
+                localStorage.setItem('darkMode', this.darkMode);
+            },
+            
+            // Formatting functions
+            formatCurrency(value) {
+                if (!value || isNaN(value)) return '$0';
+                return '$' + Math.round(value).toLocaleString('en-US');
+            },
+            
+            formatNumber(value) {
+                if (!value || isNaN(value)) return '0';
+                return Math.round(value).toLocaleString('en-US');
+            },
+            
+            formatPercentage(value) {
+                if (!value || isNaN(value)) return '0.0%';
+                const percentage = value < 1 ? value * 100 : value;
+                return percentage.toFixed(1) + '%';
+            }
+        };
+    }
+    </script>
+</body>
+</html>
