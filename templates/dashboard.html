@@ -912,85 +912,152 @@ $(document).ready(function() {
         });
     }
 
-    // Fetch dashboard data
-    function fetchData() {
-        if (state.isLoading) return;
-        
-        console.log('Fetching data with params:', {
+function fetchData(forceRefresh = false) {
+    if (state.isLoading) return;
+    
+    console.log('Fetching data with params:', {
+        start_date: state.startDate,
+        end_date: state.endDate,
+        include_spam: state.includeSpam,
+        include_abandoned: state.includeAbandoned,
+        include_duplicate: state.includeDuplicate,
+        force_refresh: forceRefresh
+    });
+    
+    state.isLoading = true;
+    
+    // Show loading state
+    $('#loadingState').show();
+    $('#errorState').hide();
+    $('#dashboardContent').hide();
+    
+    $.ajax({
+        url: '/api/dashboard-data',
+        method: 'GET',
+        data: {
             start_date: state.startDate,
             end_date: state.endDate,
             include_spam: state.includeSpam,
             include_abandoned: state.includeAbandoned,
-            include_duplicate: state.includeDuplicate
-        });
-        
-        state.isLoading = true;
-        
-        // Show loading state
-        $('#loadingState').show();
-        $('#errorState').hide();
-        $('#dashboardContent').hide();
-        
-        $.ajax({
-            url: '/api/dashboard-data',
-            method: 'GET',
-            data: {
-                start_date: state.startDate,
-                end_date: state.endDate,
-                include_spam: state.includeSpam,
-                include_abandoned: state.includeAbandoned,
-                include_duplicate: state.includeDuplicate
-            },
-            success: function(response) {
-                console.log('Data received:', response);
-                state.dashboardData = response;
+            include_duplicate: state.includeDuplicate,
+            force_refresh: forceRefresh  // Add force_refresh parameter
+        },
+        success: function(response) {
+            console.log('Data received:', response);
+            state.dashboardData = response;
+            
+            // Extract litify leads
+            state.litifyLeads = response.litify_leads || [];
+            state.availableBuckets = response.available_buckets || [];
+            
+            console.log('Litify leads count:', state.litifyLeads.length);
+            
+            updateExclusionCounts();
+            filterLitifyLeads();
+            renderDashboard();
+            
+            $('#loadingState').hide();
+            $('#dashboardContent').show();
+            
+            // Show success notification if it was a manual refresh
+            if (forceRefresh) {
+                // Stop the spinner first
+                $('#refreshIcon').removeClass('fa-spin');
                 
-                // Extract litify leads
-                state.litifyLeads = response.litify_leads || [];
-                state.availableBuckets = response.available_buckets || [];
+                // Simple inline success indicator
+                const $refreshBtn = $('#refreshBtn');
+                const $refreshIcon = $('#refreshIcon');
                 
-                console.log('Litify leads count:', state.litifyLeads.length);
+                // Change icon to checkmark temporarily
+                $refreshIcon.removeClass('fa-sync-alt fa-spin').addClass('fa-check');
+                $refreshBtn.removeClass('btn-primary').addClass('btn-success');
                 
-                updateExclusionCounts();
-                filterLitifyLeads();
-                renderDashboard();
-                
-                $('#loadingState').hide();
-                $('#dashboardContent').show();
-            },
-            error: function(xhr, status, error) {
-                console.error('Error fetching data:', error, xhr.responseText);
-                let errorMessage = 'Failed to load dashboard data. Please try again.';
-                
-                try {
-                    const response = JSON.parse(xhr.responseText);
-                    if (response.error) {
-                        errorMessage = response.error;
-                    }
-                } catch (e) {
-                    // Use default error message
+                // Revert back after 2 seconds
+                setTimeout(() => {
+                    $refreshIcon.removeClass('fa-check').addClass('fa-sync-alt');
+                    $refreshBtn.removeClass('btn-success').addClass('btn-primary');
+                }, 2000);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error fetching data:', error, xhr.responseText);
+            let errorMessage = 'Failed to load dashboard data. Please try again.';
+            
+            try {
+                const response = JSON.parse(xhr.responseText);
+                if (response.error) {
+                    errorMessage = response.error;
                 }
-                
-                $('#errorMessage').text(errorMessage);
-                $('#loadingState').hide();
-                $('#errorState').show();
-            },
-            complete: function() {
-                state.isLoading = false;
-                state.isRefreshing = false;
+            } catch (e) {
+                // Use default error message
+            }
+            
+            $('#errorMessage').text(errorMessage);
+            $('#loadingState').hide();
+            $('#errorState').show();
+        },
+        complete: function() {
+            state.isLoading = false;
+            state.isRefreshing = false;
+            // Only remove spin class, don't touch the icon if it's been changed to checkmark
+            if ($('#refreshIcon').hasClass('fa-sync-alt')) {
                 $('#refreshIcon').removeClass('fa-spin');
             }
-        });
-    }
+        }
+    });
+}
 
-    // Refresh data
-    function refreshData() {
-        if (state.isRefreshing) return;
-        
-        state.isRefreshing = true;
-        $('#refreshIcon').addClass('fa-spin');
-        fetchData();
+// Updated refreshData function to force fresh data pull
+function refreshData() {
+    if (state.isRefreshing) return;
+    
+    state.isRefreshing = true;
+    $('#refreshIcon').addClass('fa-spin');
+    fetchData(true);  // Pass true to force refresh and bypass cache
+}
+
+// Optional: Add a notification function for user feedback
+function showNotification(message, type = 'info') {
+    // Remove any existing notifications first
+    $('.dashboard-notification').remove();
+    
+    const bgClass = type === 'success' ? 'bg-green-500' : 
+                    type === 'error' ? 'bg-red-500' : 
+                    'bg-blue-500';
+    
+    const notification = $(`
+        <div class="dashboard-notification fixed top-20 right-6 z-50 ${bgClass} text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-3" style="min-width: 250px;">
+            <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i>
+            <span class="text-sm font-medium">${message}</span>
+        </div>
+    `);
+    
+    $('body').append(notification);
+    
+    // Fade in
+    notification.hide().fadeIn(200);
+    
+    // Auto-dismiss after 3 seconds
+    setTimeout(() => {
+        notification.fadeOut(200, () => notification.remove());
+    }, 3000);
+}
+
+// Also update the retry button handler to use force refresh
+$('#retryBtn').on('click', function() {
+    fetchData(true);  // Force refresh on retry
+});
+
+// Update other event handlers that should clear cache
+// For date range changes, also force refresh
+$(document).on('click', '.date-btn', function() {
+    const range = $(this).data('range');
+    if (range) {
+        setDateRange(range);
+        fetchData(true);  // Force refresh when changing date range
     }
+});
+
 
     // Update exclusion counts
     function updateExclusionCounts() {
@@ -1224,14 +1291,14 @@ $(document).ready(function() {
             <th class="table-cell text-right">Leads</th>
             <th class="table-cell text-right">In Practice</th>
             <th class="table-cell text-right">In Practice %</th>
-            <th class="table-cell text-right">Unqualified</th>
-            <th class="table-cell text-right">Unqualified %</th>
+            <th class="table-cell text-right">Unqualified  <i class="fas fa-info-circle text-muted"  data-bs-toggle="tooltip" data-bs-placement="top" title="Leads in practice but not convertable"></i></th>
+            <th class="table-cell text-right">Unqualified % <i class="fas fa-info-circle text-muted"  data-bs-toggle="tooltip" data-bs-placement="top" title="Percentage of leads in practice but not convertable "></th>
             <th class="table-cell text-right">CPL</th>
             <th class="table-cell text-right">Cases</th>
             <th class="table-cell text-right">CPA</th>
             <th class="table-cell text-right">Retainers</th>
             <th class="table-cell text-right">Pending</th>
-            <th class="table-cell text-right">Total Ret.</th>
+            <th class="table-cell text-right">All Retainers <i class="fas fa-info-circle text-muted"  data-bs-toggle="tooltip" data-bs-placement="top" title="Total Retainers Including Pending"></i></th>
             <th class="table-cell text-right">CPR</th>
             <th class="table-cell text-right">Conv %</th>
         `;
@@ -1281,17 +1348,17 @@ $(document).ready(function() {
                         <tr class="table-row">
                             <td class="table-cell font-medium">${bucket.name}</td>
                             <td class="table-cell text-right">${formatCurrency(bucket.cost)}</td>
-                            <td class="table-cell text-right">${formatNumber(bucket.leads)}</td>
-                            <td class="table-cell text-right">${formatNumber(bucket.inPractice)}</td>
-                            <td class="table-cell text-right ${inPracticeColor}">${formatPercentage(bucket.inPracticePercent)}</td>
-                            <td class="table-cell text-right">${formatNumber(bucket.unqualified)}</td>
-                            <td class="table-cell text-right ${unqualifiedColor}">${formatPercentage(bucket.unqualifiedPercent)}</td>
-                            <td class="table-cell text-right ${cplColor} font-semibold">${formatCurrency(bucket.costPerLead)}</td>
-                            <td class="table-cell text-right">${formatNumber(bucket.cases)}</td>
-                            <td class="table-cell text-right ${cpaColor} font-semibold">${formatCurrency(bucket.cpa)}</td>
-                            <td class="table-cell text-right">${formatNumber(bucket.retainers)}</td>
-                            <td class="table-cell text-right">${formatNumber(bucket.pendingRetainers || 0)}</td>
-                            <td class="table-cell text-right font-semibold">${formatNumber(bucket.totalRetainers || bucket.retainers)}</td>
+                            <td class="table-cell text-center">${formatNumber(bucket.leads)}</td>
+                            <td class="table-cell text-center">${formatNumber(bucket.inPractice)}</td>
+                            <td class="table-cell text-center ${inPracticeColor}">${formatPercentage(bucket.inPracticePercent)}</td>
+                            <td class="table-cell text-center">${formatNumber(bucket.unqualified)}</td>
+                            <td class="table-cell text-center ${unqualifiedColor}">${formatPercentage(bucket.unqualifiedPercent)}</td>
+                            <td class="table-cell text-center ${cplColor} font-semibold">${formatCurrency(bucket.costPerLead)}</td>
+                            <td class="table-cell text-center">${formatNumber(bucket.cases)}</td>
+                            <td class="table-cell text-center ${cpaColor} font-semibold">${formatCurrency(bucket.cpa)}</td>
+                            <td class="table-cell text-center">${formatNumber(bucket.retainers)}</td>
+                            <td class="table-cell text-center">${formatNumber(bucket.pendingRetainers || 0)}</td>
+                            <td class="table-cell text-center font-semibold">${formatNumber(bucket.totalRetainers || bucket.retainers)}</td>
                             <td class="table-cell text-right ${cprColor} font-semibold">${formatCurrency(bucket.costPerRetainer)}</td>
                             <td class="table-cell text-right ${convColor} font-semibold">${formatPercentage(bucket.conversionRate)}</td>
                         </tr>
@@ -1396,8 +1463,7 @@ function renderLitifyTable() {
     // Render body
     let bodyHtml = '';
     leads.forEach(lead => {
-        console.log('Lead data:', lead); // Debug log to see what fields are available
-        
+        //console.log('Lead data:', lead); // Debug log to see what fields are available
         // Use Yes/No text labels with color coding
         const isConverted = lead.is_converted ? 
             '<span class="text-green-600 font-semibold">Yes</span>' : 
@@ -1424,7 +1490,6 @@ function renderLitifyTable() {
                 ${lead.client_name || lead.name}
                 <i class="fas fa-external-link-alt text-xs ml-1"></i>
             </a>`;
-            console.log('Created link:', clientDisplay); // Debug log
         } else {
             console.log('No intake_id found for lead:', lead); // Debug log
         }
