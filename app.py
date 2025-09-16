@@ -499,7 +499,6 @@ class GoogleAdsManager:
             logger.error(f"❌ Error fetching MTD spend: {e}")
             return None
 
-
 def process_campaigns_to_buckets_with_litify(campaigns, litify_leads):
     """
     Process Google Ads campaigns and Litify leads to create bucketed data
@@ -1414,8 +1413,8 @@ def comparison_dashboard_page():
     """Serve the comparison dashboard HTML"""
     return render_template('comparison-dashboard.html')
 
-@app.route('/api/status')
-def api_status():
+# @app.route('/api/status')
+# def api_status():
     """Check API connection status"""
     if not ads_manager.client:
         ads_manager.initialize()
@@ -2075,10 +2074,6 @@ def api_forecast_daily_trend():
     logger.info(f"✅ Daily trend data generated: {len(daily_data)} days")
     
     return jsonify(result)
-
-
-
-
 
 # ==================== HELPER FUNCTIONS ====================
 
