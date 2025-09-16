@@ -4233,7 +4233,7 @@ if __name__ == '__main__':
     else:
         logger.warning(f"⚠️ Litify API not connected: {litify_manager.error}")
     
-    port = int(os.getenv('PORT', 8080))
+    port = int(os.getenv('PORT', 8050))
     logger.info(f"📊 Dashboard: http://localhost:{port}")
     logger.info(f"🗺️ Campaign Mapping: http://localhost:{port}/campaign-mapping")
     logger.info(f"📈 Forecasting: http://localhost:{port}/forecasting")
