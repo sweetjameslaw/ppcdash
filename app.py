@@ -1861,7 +1861,6 @@ def api_forecast_pacing():
     
     return jsonify(pacing_data)
 
-
 @app.route('/api/forecast-projections')
 @time_it
 def api_forecast_projections():
@@ -2006,7 +2005,6 @@ def api_forecast_projections():
     logger.info(f"✅ Forecast projections generated")
     
     return jsonify(projections)
-
 
 @app.route('/api/forecast-daily-trend')
 @time_it
@@ -2927,7 +2925,6 @@ def debug_campaigns_dump():
             'traceback': traceback.format_exc()
         }), 500
 
-
 # Add these routes to your app.py file after the other routes
 
 @app.route('/current-month-performance')
@@ -3327,7 +3324,6 @@ def api_current_month_daily():
         return jsonify({'error': str(e)}), 500
 
 # Add this endpoint to your app.py - it fetches day by day with progress updates
-
 @app.route('/api/current-month-daily-optimized')
 def api_current_month_daily_optimized():
     """
@@ -4233,7 +4229,9 @@ if __name__ == '__main__':
     else:
         logger.warning(f"⚠️ Litify API not connected: {litify_manager.error}")
     
-    port = int(os.getenv('PORT', 8080))
+    port = int(os.getenv('PORT', 9000))
+    is_production = os.getenv('ENVIRONMENT', 'development').lower() == 'production'
+    
     logger.info(f"📊 Dashboard: http://localhost:{port}")
     logger.info(f"🗺️ Campaign Mapping: http://localhost:{port}/campaign-mapping")
     logger.info(f"📈 Forecasting: http://localhost:{port}/forecasting")
@@ -4262,4 +4260,10 @@ if __name__ == '__main__':
     logger.info("  • Retainers = Total converted intakes")
     logger.info("=" * 60)
     
-    app.run(debug=True, host='0.0.0.0', port=port)
+    if is_production:
+        # In production, use a proper WSGI server (gunicorn)
+        logger.info("🚀 Production mode - use gunicorn or another WSGI server")
+        logger.info("   Example: gunicorn --bind 0.0.0.0:$PORT app:app")
+    else:
+        # Development mode
+        app.run(debug=True, host='0.0.0.0', port=port)
