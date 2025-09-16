@@ -2077,6 +2077,9 @@ def api_forecast_daily_trend():
     return jsonify(result)
 
 
+
+
+
 # ==================== HELPER FUNCTIONS ====================
 
 def determine_state_from_campaign(campaign_name):
@@ -3738,7 +3741,6 @@ def api_current_month_daily_optimized():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/api/debug/lsa-discovery')
 def debug_lsa_discovery():
     """
@@ -4207,6 +4209,9 @@ def annual_analytics_page():
     """Serve the annual analytics HTML"""
     return render_template('annual_analytics.html')
 
+
+
+print('hello')
 
 # ========== MAIN EXECUTION ==========
 
