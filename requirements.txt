@@ -8,7 +8,7 @@ requests==2.31.0
 gunicorn==21.2.0
 
 # Google Ads API
-google-ads==22.1.0
+google-ads==24.1.0
 
 # Salesforce/Litify API
 simple-salesforce==1.12.4
