@@ -127,7 +127,7 @@ BUCKET_PRIORITY = [
 # Simple cache for dashboard data
 CACHE_DATA = None
 CACHE_TIME = None
-CACHE_DURATION = 300  # 5 minutes in seconds
+CACHE_DURATION = 301  # 5 minutes in seconds
 
 def load_campaign_mappings():
     """Load campaign bucket mappings from JSON file or use demo defaults"""
