@@ -3,107 +3,159 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sweet James - Current Month Performance</title>
+    <title>Current Month Performance - Sweet James Dashboard</title>
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        
         * {
-            font-family: 'Inter', sans-serif;
-        }
-        
-        :root {
-            /* Industry Standard Data Colors */
-            --success: #16a34a;
-            --danger: #dc2626;
-            --warning: #ea580c;
-            --info: #2563eb;
-            --primary: #6366f1;
-            --secondary: #64748b;
-            
-            /* Neutral Palette */
-            --gray-50: #f8fafc;
-            --gray-100: #f1f5f9;
-            --gray-200: #e2e8f0;
-            --gray-300: #cbd5e1;
-            --gray-400: #94a3b8;
-            --gray-500: #64748b;
-            --gray-600: #475569;
-            --gray-700: #334155;
-            --gray-800: #1e293b;
-            --gray-900: #0f172a;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
         
         body {
-            background: #f1f5f9;
-            margin: 0;
-            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f8fafc;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
         
-        /* Sidebar Styles */
+        /* Sidebar Layout - Matching dashboard.html */
         .sidebar {
             width: 280px;
             background: white;
             border-right: 1px solid #e5e7eb;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            overflow-y: auto;
             transition: all 0.3s ease;
-            box-shadow: 0 0 10px rgba(0,0,0,0.05);
+            z-index: 40;
         }
         
         .sidebar.collapsed {
-            width: 80px;
+            width: 0;
+            overflow: hidden;
         }
         
-        .sidebar.collapsed .sidebar-text {
-            display: none;
+        body.dark-mode .sidebar {
+            background: #1f2937;
+            border-right-color: #374151;
         }
         
+        .main-content {
+            margin-left: 280px;
+            transition: all 0.3s ease;
+            min-height: 100vh;
+        }
+        
+        .main-content.expanded {
+            margin-left: 0;
+        }
+        
+        /* Sidebar Toggle Button - Fixed positioning */
         .sidebar-toggle {
-            position: absolute;
-            right: -15px;
+            position: fixed;
+            left: 260px;
             top: 50%;
             transform: translateY(-50%);
-            width: 30px;
-            height: 30px;
             background: white;
             border: 1px solid #e5e7eb;
             border-radius: 50%;
+            width: 32px;
+            height: 32px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             z-index: 100;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: left 0.3s ease;
         }
         
-        /* Main Content */
-        .main-content {
-            margin-left: 280px;
-            transition: margin-left 0.3s ease;
-            width: calc(100% - 280px);
+        .sidebar.collapsed ~ .sidebar-toggle {
+            left: -16px;
         }
         
-        .main-content.expanded {
-            margin-left: 80px;
-            width: calc(100% - 80px);
+        body.dark-mode .sidebar-toggle {
+            background: #1f2937;
+            border-color: #374151;
+        }
+        
+        /* Navigation links */
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem;
+            color: #374151;
+            text-decoration: none;
+            transition: all 0.2s;
+            font-size: 0.875rem;
+        }
+        
+        .nav-link:hover {
+            background: #f3f4f6;
+            color: #111827;
+        }
+        
+        .nav-link.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .nav-link.active i {
+            color: white !important;
+        }
+        
+        body.dark-mode .nav-link {
+            color: #d1d5db;
+        }
+        
+        body.dark-mode .nav-link:hover {
+            background: #374151;
+            color: #f3f4f6;
+        }
+        
+        body.dark-mode .nav-link.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
         }
         
         /* Cards */
         .card {
             background: white;
-            border-radius: 8px;
+            border-radius: 12px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
         
         /* Metric Cards */
         .metric-card {
             background: white;
-            border-radius: 8px;
-            padding: 1.25rem;
-            border: 1px solid #e5e7eb;
-            transition: all 0.2s ease;
+            padding: 1rem;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
         }
         
         .metric-card:hover {
@@ -115,64 +167,67 @@
             font-size: 0.625rem;
             font-weight: 600;
             text-transform: uppercase;
+            color: #64748b;
             letter-spacing: 0.05em;
-            color: #6b7280;
             margin-bottom: 0.5rem;
         }
         
         .metric-value {
-            font-size: 1.875rem;
+            font-size: 1.25rem;
             font-weight: 700;
-            margin-bottom: 0.25rem;
+            color: #1e293b;
+            line-height: 1.2;
         }
         
         .metric-change {
             font-size: 0.75rem;
-            font-weight: 500;
-            color: #6b7280;
+            margin-top: 0.25rem;
+            display: flex;
+            align-items: center;
         }
         
-        .text-cost { color: #1e293b; }
-        .text-leads { color: #2563eb; }
-        .text-cases { color: #16a34a; }
-        .text-retainers { color: #7c3aed; }
+        .metric-change.positive {
+            color: #10b981;
+        }
         
-        .change-positive { color: #16a34a; }
-        .change-negative { color: #dc2626; }
-        .change-neutral { color: #6b7280; }
+        .metric-change.negative {
+            color: #ef4444;
+        }
         
         /* Buttons */
         .btn-primary {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            font-size: 0.875rem;
+            padding: 0.625rem 1.25rem;
+            border-radius: 8px;
             font-weight: 500;
-            transition: all 0.2s ease;
             border: none;
             cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.875rem;
         }
         
         .btn-primary:hover {
-            transform: translateY(-1px);
+            transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
         
         .btn-secondary {
             background: white;
             color: #475569;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            font-size: 0.875rem;
+            padding: 0.625rem 1.25rem;
+            border-radius: 8px;
             font-weight: 500;
             border: 1px solid #e2e8f0;
-            transition: all 0.2s ease;
             cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.875rem;
         }
         
         .btn-secondary:hover {
             background: #f8fafc;
+            border-color: #667eea;
+            color: #667eea;
         }
         
         /* State Filter Buttons */
@@ -271,14 +326,22 @@
             text-align: left;
             font-size: 0.625rem;
             font-weight: 600;
+            color: #475569;
             text-transform: uppercase;
-            letter-spacing: 0.025em;
-            color: #6b7280;
+            letter-spacing: 0.05em;
             white-space: nowrap;
+            background: #f8fafc;
+        }
+        
+        .data-table td {
+            padding: 0.75rem 0.5rem;
+            font-size: 0.875rem;
+            color: #1e293b;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
         }
         
         .data-table tbody tr {
-            border-bottom: 1px solid #f1f5f9;
             transition: background 0.2s ease;
         }
         
@@ -286,181 +349,38 @@
             background: #f8fafc;
         }
         
-        .data-table td {
-            padding: 0.75rem 0.5rem;
-            font-size: 0.8125rem;
-            color: #1e293b;
-            white-space: nowrap;
+        .data-table tbody tr.weekend-row {
+            background: #fef3c7;
         }
         
-        /* Special row states */
-        .row-today {
-            background: #eff6ff !important;
+        .data-table tbody tr.weekend-row:hover {
+            background: #fde68a;
         }
         
-        .row-weekend {
-            background: #fafafa;
-        }
-        
-        .row-future {
-            opacity: 0.4;
-        }
-        
-        /* Bucket rows with alternating colors */
-        .bucket-row {
-            background: #f9fafb;
-            display: none;
-        }
-        
-        .bucket-row.show {
-            display: table-row;
-        }
-        
-        /* Alternating colors for bucket rows */
-        .bucket-row:nth-child(even) {
-            background: var(--gray-50);
-        }
-        
-        .bucket-row:nth-child(odd) {
-            background: white;
-        }
-        
-        .bucket-row:hover {
-            background: #eff6ff !important;
-        }
-        
-        .bucket-row td {
-            font-size: 0.75rem;
-            padding: 0.5rem;
-            font-weight: 500;
-            color: var(--gray-700);
-        }
-        
-        .bucket-row td .font-medium {
+        .data-table tbody tr.today-row {
+            background: linear-gradient(135deg, #eff6ff, #dbeafe);
             font-weight: 600;
-            color: var(--gray-900);
+            position: relative;
         }
         
-        /* Bucket badges - NO BORDERS */
-        .bucket-badge {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            letter-spacing: 0.025em;
-        }
-        
-        .bucket-california, .bucket-ca { 
+        .data-table tbody tr.today-row:hover {
             background: linear-gradient(135deg, #dbeafe, #bfdbfe);
-            color: #1e40af;
         }
         
-        .bucket-arizona, .bucket-az { 
-            background: linear-gradient(135deg, #fee2e2, #fecaca);
-            color: #991b1b;
+        .data-table tbody tr.today-row td {
+            border-bottom: 2px solid #3b82f6;
         }
         
-        .bucket-georgia, .bucket-ga { 
-            background: linear-gradient(135deg, #dcfce7, #bbf7d0);
-            color: #14532d;
-        }
-        
-        .bucket-texas, .bucket-tx { 
-            background: linear-gradient(135deg, #fef08a, #fde047);
-            color: #713f12;
-        }
-        
-        .bucket-lsa { 
-            background: linear-gradient(135deg, #f3e8ff, #e9d5ff);
-            color: #581c87;
-        }
-        
-        .bucket-brand { 
-            background: linear-gradient(135deg, #fef3c7, #fed7aa);
-            color: #92400e;
-        }
-        
-        .bucket-prospecting { 
-            background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
-            color: #3730a3;
-        }
-        
-        .bucket-crisp-youtube, .bucket-youtube {
-            background: linear-gradient(135deg, #fee2e2, #fecaca);
-            color: #dc2626;
-        }
-        
-        /* Date cell */
-        .date-cell {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .date-num {
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: #1e293b;
-        }
-        
-        .date-day {
+        .today-indicator {
+            display: inline-block;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
             font-size: 0.625rem;
-            color: #6b7280;
-        }
-        
-        /* Chevron */
-        .chevron {
-            transition: transform 0.2s ease;
-            cursor: pointer;
-            color: #9ca3af;
-            font-size: 0.75rem;
-        }
-        
-        .chevron.rotated {
-            transform: rotate(90deg);
-            color: #64748b;
-        }
-        
-        .has-buckets {
-            cursor: pointer;
-        }
-        
-        .has-buckets:hover .chevron {
-            color: #64748b;
-        }
-        
-        /* Loading - ENHANCED VERSION */
-        .loader-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
-            backdrop-filter: blur(8px);
-            z-index: 9999;
-            display: none;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .loader-content {
-            text-align: center;
-            max-width: 400px;
-            padding: 2rem;
-        }
-        
-        .loader-logo {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, #f59e0b 0%, #dc2626 100%);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 1.5rem;
+            font-weight: 700;
+            padding: 0.125rem 0.375rem;
+            border-radius: 9999px;
+            margin-left: 0.5rem;
+            letter-spacing: 0.05em;
             animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
         
@@ -469,165 +389,433 @@
                 opacity: 1;
             }
             50% {
-                opacity: .5;
+                opacity: .8;
             }
         }
         
-        .loader-title {
-            color: white;
-            font-size: 1.5rem;
+        .data-table tbody tr.future-row {
+            background: #f1f5f9;
+            opacity: 0.6;
+        }
+        
+        .data-table tbody tr.bucket-row {
+            background: #f8fafc;
+            font-size: 0.813rem;
+            display: none;
+        }
+        
+        .data-table tbody tr.bucket-row.show {
+            display: table-row;
+        }
+        
+        .data-table tbody tr.bucket-row td:first-child {
+            padding-left: 3rem;
+        }
+        
+        .data-table tbody tr.has-buckets {
+            cursor: pointer;
+        }
+        
+        .data-table tbody tr.has-buckets:hover {
+            background: #f1f5f9;
+        }
+        
+        /* Bucket Badge Styling */
+        .bucket-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
             font-weight: 600;
-            margin-bottom: 0.5rem;
+            letter-spacing: 0.025em;
+            white-space: nowrap;
         }
         
-        .loader-status {
-            color: #94a3b8;
-            font-size: 0.875rem;
-            margin-bottom: 1.5rem;
-            min-height: 20px;
+        /* State-based bucket colors */
+        .bucket-california {
+            background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+            color: #1e40af;
         }
         
-        .progress-bar-container {
-            width: 100%;
-            height: 6px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 3px;
-            overflow: hidden;
-            margin-bottom: 1rem;
+        .bucket-arizona {
+            background: linear-gradient(135deg, #fee2e2, #fecaca);
+            color: #991b1b;
         }
         
-        .progress-bar {
-            height: 100%;
-            background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
-            border-radius: 3px;
-            width: 0%;
-            transition: width 0.3s ease;
-            box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+        .bucket-georgia {
+            background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+            color: #14532d;
         }
         
-        .loader-details {
+        .bucket-texas {
+            background: linear-gradient(135deg, #fef08a, #fde047);
+            color: #713f12;
+        }
+        
+        /* Type-based bucket colors */
+        .bucket-lsa {
+            background: linear-gradient(135deg, #f3e8ff, #e9d5ff);
+            color: #581c87;
+        }
+        
+        .bucket-brand {
+            background: linear-gradient(135deg, #fef3c7, #fed7aa);
+            color: #92400e;
+        }
+        
+        .bucket-prospecting {
+            background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+            color: #3730a3;
+        }
+        
+        .bucket-youtube {
+            background: linear-gradient(135deg, #fee2e2, #fecaca);
+            color: #dc2626;
+        }
+        
+        .bucket-default {
+            background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+            color: #374151;
+        }
+        
+        /* Total Row Styling */
+        .data-table tbody tr.total-row {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            font-weight: 700;
+            border-top: 3px solid #667eea;
+            position: sticky;
+            bottom: 0;
+            z-index: 10;
+        }
+        
+        .data-table tbody tr.total-row td {
+            padding: 1rem 0.5rem;
+            border-bottom: none;
+            color: #1e293b;
+            font-size: 0.9375rem;
+        }
+        
+        .data-table tbody tr.total-row:hover {
+            background: linear-gradient(135deg, #f1f5f9 0%, #cbd5e1 100%);
+        }
+        
+        /* Date Display */
+        .date-cell {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .date-num {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .date-day {
+            font-size: 0.75rem;
             color: #64748b;
+        }
+        
+        /* Chevron */
+        .chevron {
+            color: #94a3b8;
+            transition: transform 0.2s ease;
             font-size: 0.75rem;
         }
         
-        /* Warning metric */
+        .chevron.rotated {
+            transform: rotate(90deg);
+        }
+        
+        /* Deltas */
+        .metric-value-main {
+            font-weight: 600;
+        }
+        
+        .metric-delta {
+            font-size: 0.625rem;
+            margin-top: 0.125rem;
+        }
+        
+        .metric-delta.positive {
+            color: #10b981;
+        }
+        
+        .metric-delta.negative {
+            color: #ef4444;
+        }
+        
+        .metric-delta.neutral {
+            color: #64748b;
+        }
+        
+        /* Text Colors */
+        .text-cost {
+            color: #dc2626;
+        }
+        
+        .text-leads {
+            color: #059669;
+        }
+        
+        .text-conversion {
+            color: #7c3aed;
+        }
+        
+        /* Warning Metrics */
         .warning-metric {
-            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%) !important;
-            border-color: #f87171 !important;
+            border-color: #fbbf24;
+            background: #fffbeb;
         }
         
-        .warning-metric .metric-value {
-            color: #991b1b !important;
-        }
-        
-        /* Status dot */
-        .status-dot {
+        /* Status Indicators */
+        .status-indicator {
             width: 8px;
             height: 8px;
             border-radius: 50%;
             display: inline-block;
+            margin-right: 0.5rem;
         }
         
-        /* Chart container */
+        .status-indicator.connected {
+            background: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+        }
+        
+        .status-indicator.error {
+            background: #ef4444;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+        }
+        
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            backdrop-filter: blur(4px);
+        }
+        
+        .loading-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 16px;
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 1.5rem;
+            border: 4px solid #e2e8f0;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 0.5rem;
+        }
+        
+        .loading-message {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-bottom: 1rem;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 3px;
+            margin-top: 1.5rem;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+        
+        .loading-details {
+            margin-top: 1.5rem;
+            text-align: left;
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 0.5rem;
+            background: #f8fafc;
+            border-radius: 8px;
+            font-size: 0.75rem;
+        }
+        
+        .loading-step {
+            display: flex;
+            align-items: center;
+            padding: 0.375rem 0.5rem;
+            color: #64748b;
+            transition: all 0.2s ease;
+        }
+        
+        .loading-step i {
+            margin-right: 0.5rem;
+            width: 14px;
+            text-align: center;
+        }
+        
+        .loading-step.active {
+            color: #667eea;
+            font-weight: 500;
+        }
+        
+        .loading-step.completed {
+            color: #10b981;
+        }
+        
+        .loading-step.completed i::before {
+            content: '\f058';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+        }
+        
+        .loading-step.error {
+            color: #ef4444;
+        }
+        
+        .loading-step.error i::before {
+            content: '\f057';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+        }
+        
+        /* Chart Container */
         .chart-container {
             position: relative;
             height: 300px;
         }
         
-        /* Metrics typography from dashboard */
-        .metric-value-main {
-            font-size: 1.125rem;
-            font-weight: 600;
-            color: var(--gray-900);
-        }
-        
-        .metric-delta {
-            font-size: 0.625rem;
-            font-weight: 500;
-            margin-top: 0.125rem;
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .metric-card {
+                padding: 0.75rem;
+            }
+            
+            .metric-value {
+                font-size: 1rem;
+            }
         }
     </style>
 </head>
-<body class="min-h-screen">
-    <!-- Loading - ENHANCED VERSION -->
-    <div id="loader" class="loader-overlay">
-        <div class="loader-content">
-            <div class="loader-logo">
-                <span class="font-bold text-white text-xl">SJ</span>
+<body>
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-title">Loading Dashboard</div>
+            <div class="loading-message" id="loading-message">Connecting to data sources...</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill" style="width: 0%;"></div>
             </div>
-            <h2 class="loader-title">Loading Dashboard</h2>
-            <div class="loader-status" id="loader-status">Initializing...</div>
-            <div class="progress-bar-container">
-                <div class="progress-bar" id="progress-bar"></div>
+            <div class="loading-details" id="loading-details">
+                <div class="loading-step" id="step-1">
+                    <i class="fas fa-circle-notch fa-spin"></i>
+                    <span>Initializing connections...</span>
+                </div>
             </div>
-            <div class="loader-details" id="loader-details">Please wait</div>
         </div>
     </div>
     
     <!-- Sidebar -->
-    <aside id="sidebar" class="sidebar fixed left-0 top-0 h-full z-50">
-        <div class="p-6 border-b border-gray-200">
+    <aside id="sidebar" class="sidebar fixed left-0 top-0 z-40">
+        <div class="p-6 border-b border-gray-200 dark-mode:border-gray-700">
             <div class="flex items-center space-x-3">
                 <div class="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center">
                     <span class="font-bold text-white text-sm">SJ</span>
                 </div>
-                <div class="sidebar-text">
-                    <h1 class="text-lg font-bold text-gray-900">Sweet James</h1>
-                    <p class="text-xs text-gray-500">Current Month</p>
+                <div>
+                    <h1 class="text-lg font-bold text-gray-900 dark-mode:text-white">Sweet James</h1>
+                    <p class="text-xs text-gray-500 dark-mode:text-gray-300">Analytics Suite</p>
                 </div>
             </div>
         </div>
         
-        <!-- Sidebar Toggle -->
-        <div class="sidebar-toggle" onclick="toggleSidebar()">
-            <i id="sidebar-icon" class="fas fa-chevron-left text-gray-500 text-sm"></i>
-        </div>
+        <nav class="p-6 space-y-2">
+            <a href="/" class="nav-link">
+                <i class="fas fa-th-large mr-3 text-gray-400"></i>
+                <span>Dashboard Home</span>
+            </a>
+            <a href="/current-month-performance" class="nav-link active">
+                <i class="fas fa-calendar-day mr-3 text-gray-400"></i>
+                <span>Current Month</span>
+            </a>
+            <a href="/forecasting" class="nav-link">
+                <i class="fas fa-chart-line mr-3 text-gray-400"></i>
+                <span>Forecasting</span>
+            </a>
+            <a href="/campaign-mapping" class="nav-link">
+                <i class="fas fa-sitemap mr-3 text-gray-400"></i>
+                <span>Campaign Mapping</span>
+            </a>
+            <a href="/annual-analytics" class="nav-link">
+                <i class="fas fa-chart-bar mr-3 text-gray-400"></i>
+                <span>Annual Analytics</span>
+            </a>
+        </nav>
         
-        <!-- Sidebar Content -->
-        <div class="p-6 space-y-6 overflow-y-auto" style="height: calc(100% - 100px);">
+        <div class="px-6 pb-6 space-y-4">
             <!-- API Status -->
-            <div>
-                <h3 class="text-xs font-semibold uppercase text-gray-500 mb-3 sidebar-text">API Status</h3>
+            <div class="pt-4 border-t border-gray-200 dark-mode:border-gray-700">
+                <h3 class="text-xs font-semibold uppercase text-gray-500 dark-mode:text-gray-400 mb-3">Connection Status</h3>
                 <div class="space-y-2">
-                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-md">
-                        <span class="text-sm text-gray-700 sidebar-text">Google Ads</span>
-                        <div id="google-status" class="status-dot bg-amber-500"></div>
+                    <div class="flex items-center justify-between p-2 bg-gray-50 dark-mode:bg-gray-800 rounded">
+                        <span class="text-sm text-gray-700 dark-mode:text-gray-300">Google Ads</span>
+                        <span id="google-status" class="status-indicator connected"></span>
                     </div>
-                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-md">
-                        <span class="text-sm text-gray-700 sidebar-text">Salesforce</span>
-                        <div id="salesforce-status" class="status-dot bg-amber-500"></div>
+                    <div class="flex items-center justify-between p-2 bg-gray-50 dark-mode:bg-gray-800 rounded">
+                        <span class="text-sm text-gray-700 dark-mode:text-gray-300">Salesforce</span>
+                        <span id="salesforce-status" class="status-indicator connected"></span>
                     </div>
-                </div>
-            </div>
-            
-            <!-- Navigation -->
-            <div>
-                <h3 class="text-xs font-semibold uppercase text-gray-500 mb-3 sidebar-text">Navigation</h3>
-                <div class="space-y-2">
-                    <a href="/" class="btn-secondary w-full px-3 py-2 rounded-md text-sm text-center block">
-                        <i class="fas fa-home mr-2"></i><span class="sidebar-text">Dashboard</span>
-                    </a>
-                    <a href="/current-month-performance" class="btn-primary w-full px-3 py-2 rounded-md text-sm text-center block">
-                        <i class="fas fa-calendar-day mr-2"></i><span class="sidebar-text">Current Month</span>
-                    </a>
-                    <a href="/forecasting" class="btn-secondary w-full px-3 py-2 rounded-md text-sm text-center block">
-                        <i class="fas fa-chart-line mr-2"></i><span class="sidebar-text">Forecasting</span>
-                    </a>
-                    <a href="/campaign-mapping" class="btn-secondary w-full px-3 py-2 rounded-md text-sm text-center block">
-                        <i class="fas fa-sitemap mr-2"></i><span class="sidebar-text">Campaign Mapping</span>
-                    </a>
-                    <a href="/annual-analytics" class="btn-secondary w-full px-3 py-2 rounded-md text-sm text-center block">
-                        <i class="fas fa-chart-bar mr-2"></i><span class="sidebar-text">Annual Analytics</span>
-                    </a>
                 </div>
             </div>
             
             <!-- Data Info -->
             <div>
-                <h3 class="text-xs font-semibold uppercase text-gray-500 mb-3 sidebar-text">Data Source</h3>
-                <div class="p-3 bg-gray-50 rounded-md">
-                    <div class="text-sm font-medium text-gray-700 sidebar-text" id="data-source">Connecting...</div>
-                    <div class="text-xs text-gray-500 mt-1 sidebar-text">
+                <h3 class="text-xs font-semibold uppercase text-gray-500 dark-mode:text-gray-400 mb-3">Data Source</h3>
+                <div class="p-3 bg-gray-50 dark-mode:bg-gray-800 rounded-md">
+                    <div class="text-sm font-medium text-gray-700 dark-mode:text-gray-300" id="data-source">Connecting...</div>
+                    <div class="text-xs text-gray-500 dark-mode:text-gray-400 mt-1">
                         Last Updated: <span id="last-updated">--</span>
                     </div>
                 </div>
@@ -635,8 +823,13 @@
         </div>
     </aside>
     
+    <!-- Sidebar Toggle Button -->
+    <div class="sidebar-toggle" id="sidebarToggle">
+        <i id="sidebarIcon" class="fas fa-chevron-left text-gray-500 text-sm"></i>
+    </div>
+    
     <!-- Main Content -->
-    <main id="main-content" class="main-content">
+    <main id="mainContent" class="main-content">
         <!-- Header -->
         <header class="card border-b sticky top-0 z-30">
             <div class="px-6 py-4">
@@ -756,111 +949,138 @@
                     </div>
                     
                     <div class="card p-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Conversion Rate</h3>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Bucket Performance</h3>
                         <div class="chart-container">
-                            <canvas id="chart-conversion"></canvas>
+                            <canvas id="chart-buckets"></canvas>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </main>
+    
     <script>
-    // Global data
+    // Global variables
     let monthData = {};
-    let charts = {};
     let currentView = 'table';
     let currentFilter = 'breakdown';
     let currentStateFilter = 'all';
-    let sidebarCollapsed = false;
+    let chartInstances = {};
     
     // Initialize
     $(document).ready(function() {
         const now = new Date();
-        $('#month-label').text(now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
-        refreshData();
+        const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        $('#month-label').text(monthName);
+        
+        // Setup sidebar toggle
+        $('#sidebarToggle').click(function() {
+            $('#sidebar').toggleClass('collapsed');
+            $('#mainContent').toggleClass('expanded');
+            $('#sidebarIcon').toggleClass('fa-chevron-left fa-chevron-right');
+        });
+        
+        loadData();
     });
     
-    // Toggle sidebar
-    function toggleSidebar() {
-        sidebarCollapsed = !sidebarCollapsed;
-        const sidebar = $('#sidebar');
-        const mainContent = $('#main-content');
-        const icon = $('#sidebar-icon');
-        
-        if (sidebarCollapsed) {
-            sidebar.addClass('collapsed');
-            mainContent.addClass('expanded');
-            icon.removeClass('fa-chevron-left').addClass('fa-chevron-right');
-        } else {
-            sidebar.removeClass('collapsed');
-            mainContent.removeClass('expanded');
-            icon.removeClass('fa-chevron-right').addClass('fa-chevron-left');
-        }
+    // Show/Hide Loading
+    function showLoader() {
+        $('#loading-overlay').fadeIn(300);
+    }
+    
+    function hideLoader() {
+        $('#loading-overlay').fadeOut(300);
+    }
+    
+    function updateLoader(progress, title, message) {
+        $('#progress-fill').css('width', progress + '%');
+        if (title) $('.loading-title').text(title);
+        if (message) $('#loading-message').text(message);
     }
     
     // Format functions
     function formatCurrency(value) {
-        if (!value || isNaN(value)) return '$0';
-        return '$' + Math.round(value).toLocaleString('en-US');
+        if (value === null || value === undefined) return '$0';
+        return '$' + Math.round(value).toLocaleString();
     }
     
     function formatNumber(value) {
-        if (!value || isNaN(value)) return '0';
-        return Math.round(value).toLocaleString('en-US');
+        if (value === null || value === undefined) return '0';
+        return Math.round(value).toLocaleString();
     }
     
     function formatPercent(value) {
-        if (value === undefined || value === null || isNaN(value)) return '0.00%';
-        
-        // Normal case - value is already a decimal (0.30 = 30%)
-        // or a percentage value that needs to be shown
-        if (value <= 1) {
-            return (value * 100).toFixed(2) + '%';
-        } else {
-            // Already a percentage (30 = 30%)
-            return value.toFixed(2) + '%';
-        }
+        if (value === null || value === undefined || value === 0) return '0%';
+        return (value * 100).toFixed(1) + '%';
     }
     
     function formatDelta(value, isCount = false) {
-        if (value === undefined || value === null || isNaN(value) || value === 0) return '';
-        const sign = value > 0 ? '+' : '';
+        if (value === null || value === undefined) return '';
+        const prefix = value > 0 ? '+' : '';
         if (isCount) {
-            return sign + Math.round(value);
+            return prefix + Math.round(value);
         }
-        return sign + '$' + Math.round(value).toLocaleString();
+        return prefix + formatCurrency(Math.abs(value)).replace('$', (value < 0 ? '-$' : '$'));
     }
     
-    function getDeltaClass(value, inverse = false) {
-        if (!value || isNaN(value)) return 'change-neutral';
-        if (inverse) value = -value;
-        if (value > 0) return 'change-positive';
-        if (value < 0) return 'change-negative';
-        return 'change-neutral';
+    function getDeltaClass(value, isReverse = false) {
+        if (value === null || value === undefined || value === 0) return 'neutral';
+        if (isReverse) {
+            return value > 0 ? 'negative' : 'positive';
+        }
+        return value > 0 ? 'positive' : 'negative';
     }
     
     // Get state from bucket name
     function getStateFromBucket(bucketName) {
-        const bucketLower = bucketName.toLowerCase();
-        if (bucketLower.includes('california')) return 'CA';
-        if (bucketLower.includes('arizona')) return 'AZ';
-        if (bucketLower.includes('georgia')) return 'GA';
-        if (bucketLower.includes('texas')) return 'TX';
+        if (!bucketName) return null;
+        if (bucketName.includes('California') || bucketName.includes('CA')) return 'CA';
+        if (bucketName.includes('Arizona') || bucketName.includes('AZ')) return 'AZ';
+        if (bucketName.includes('Georgia') || bucketName.includes('GA')) return 'GA';
+        if (bucketName.includes('Texas') || bucketName.includes('TX')) return 'TX';
         return null;
+    }
+    
+    // Get bucket color class based on bucket name
+    function getBucketColorClass(bucketName) {
+        if (!bucketName) return '';
+        const nameLower = bucketName.toLowerCase();
+        
+        // State-based colors
+        if (nameLower.includes('california') || nameLower.includes(' ca ')) {
+            return 'bucket-california';
+        } else if (nameLower.includes('arizona') || nameLower.includes(' az ')) {
+            return 'bucket-arizona';
+        } else if (nameLower.includes('georgia') || nameLower.includes(' ga ')) {
+            return 'bucket-georgia';
+        } else if (nameLower.includes('texas') || nameLower.includes(' tx ')) {
+            return 'bucket-texas';
+        }
+        
+        // Type-based colors
+        if (nameLower.includes('lsa')) {
+            return 'bucket-lsa';
+        } else if (nameLower.includes('brand')) {
+            return 'bucket-brand';
+        } else if (nameLower.includes('prospecting')) {
+            return 'bucket-prospecting';
+        } else if (nameLower.includes('youtube') || nameLower.includes('crisp')) {
+            return 'bucket-youtube';
+        }
+        
+        // Default
+        return 'bucket-default';
     }
     
     // Filter by state
     function filterByState(state) {
         currentStateFilter = state;
         
-        // Update button states
         $('.state-filter-btn').removeClass('active');
         $(`.state-filter-btn[data-state="${state}"]`).addClass('active');
         
-        // Update display
-        updateSummaryCards();
         updateBucketFilter();
+        updateSummaryCards();
         renderTable();
         
         if (currentView === 'charts') {
@@ -868,60 +1088,110 @@
         }
     }
     
-    // Enhanced loader functions
-    function showLoader() {
-        $('#loader').css('display', 'flex').hide().fadeIn(200);
-        $('#progress-bar').css('width', '0%');
-        $('#loader-status').text('Initializing...');
-        $('#loader-details').text('Please wait');
-    }
-    
-    function hideLoader() {
-        $('#loader').fadeOut(300);
-    }
-    
-    function updateLoader(progress, status, details) {
-        $('#progress-bar').css('width', progress + '%');
-        $('#loader-status').text(status);
-        $('#loader-details').text(details);
-    }
-    
-    // Fetch data with enhanced loading experience
-    async function refreshData() {
-        showLoader();
-        
+    // Load data with detailed progress updates
+    async function loadData() {
         try {
-            updateLoader(10, 'Connecting to APIs...', 'Establishing secure connection');
-            await new Promise(resolve => setTimeout(resolve, 300));
+            showLoader();
+            const loadingSteps = $('#loading-details');
+            loadingSteps.empty();
             
-            updateLoader(25, 'Fetching Google Ads data...', 'Retrieving campaign performance');
+            // Step 1: Initialize
+            addLoadingStep('Initializing connections...', 'active');
+            updateLoader(5, 'Preparing Dashboard', 'Setting up data connections');
+            await simulateDelay(300);
+            completeLoadingStep(0);
+            
+            // Step 2: Connect to Google Ads
+            addLoadingStep('Connecting to Google Ads API...', 'active');
+            updateLoader(10, 'Google Ads Connection', 'Authenticating with Google Ads');
+            await simulateDelay(400);
+            completeLoadingStep(1);
+            
+            // Step 3: Connect to Salesforce
+            addLoadingStep('Connecting to Salesforce/Litify...', 'active');
+            updateLoader(15, 'Salesforce Connection', 'Establishing Litify connection');
+            await simulateDelay(400);
+            completeLoadingStep(2);
+            
+            // Step 4: Fetch campaign data
+            addLoadingStep('Fetching campaign performance data...', 'active');
+            updateLoader(20, 'Retrieving Campaigns', 'Loading Google Ads campaigns');
+            
+            // Step 5: Fetch current month data
+            addLoadingStep('Processing current month data...', 'active');
+            updateLoader(25, 'Fetching Monthly Data', 'Retrieving campaign performance');
             
             const response = await fetch('/api/current-month-daily');
             
-            updateLoader(50, 'Processing Salesforce data...', 'Syncing lead information');
+            completeLoadingStep(3);
+            completeLoadingStep(4);
             
+            // Step 6: Parse data
+            addLoadingStep('Parsing response data...', 'active');
+            updateLoader(40, 'Processing Data', 'Analyzing campaign metrics');
             const data = await response.json();
+            await simulateDelay(200);
+            completeLoadingStep(5);
             
-            updateLoader(70, 'Calculating metrics...', 'Analyzing conversion rates');
+            // Step 7: Process daily metrics
+            const totalDays = data.daily_data ? data.daily_data.length : 0;
+            if (totalDays > 0) {
+                addLoadingStep(`Processing ${totalDays} days of data...`, 'active');
+                updateLoader(50, 'Daily Metrics', `Calculating metrics for ${totalDays} days`);
+                await simulateDelay(300);
+                completeLoadingStep(6);
+                
+                // Step 8: Calculate bucket performance
+                addLoadingStep('Calculating bucket performance...', 'active');
+                updateLoader(60, 'Bucket Analysis', 'Analyzing performance by bucket');
+                await simulateDelay(200);
+                completeLoadingStep(7);
+                
+                // Step 9: Process lead data
+                addLoadingStep('Processing lead conversion data...', 'active');
+                updateLoader(70, 'Lead Analysis', 'Calculating conversion rates');
+                await simulateDelay(200);
+                completeLoadingStep(8);
+            }
             
             monthData = data;
             console.log('Raw API Response:', data);
             
-            updateLoader(85, 'Building dashboard...', 'Rendering components');
-            
+            // Step 10: Build UI components
+            addLoadingStep('Building summary cards...', 'active');
+            updateLoader(80, 'Rendering UI', 'Creating summary metrics');
             updateSummaryCards();
+            await simulateDelay(150);
+            completeLoadingStep(totalDays > 0 ? 9 : 6);
+            
+            // Step 11: Build table
+            addLoadingStep('Rendering performance table...', 'active');
+            updateLoader(85, 'Building Table', 'Creating daily breakdown');
             updateBucketFilter();
             renderTable();
+            await simulateDelay(150);
+            completeLoadingStep(totalDays > 0 ? 10 : 7);
             
-            updateLoader(95, 'Finalizing...', 'Almost ready');
-            
+            // Step 12: Prepare charts
+            addLoadingStep('Preparing visualization charts...', 'active');
+            updateLoader(90, 'Chart Preparation', 'Setting up data visualizations');
             if (currentView === 'charts') {
                 renderCharts();
             }
+            await simulateDelay(150);
+            completeLoadingStep(totalDays > 0 ? 11 : 8);
             
+            // Step 13: Finalize
+            addLoadingStep('Finalizing dashboard...', 'active');
+            updateLoader(95, 'Almost Ready', 'Applying final touches');
             updateStatus();
+            await simulateDelay(200);
+            completeLoadingStep(totalDays > 0 ? 12 : 9);
             
             updateLoader(100, 'Complete!', 'Dashboard ready');
+            
+            // Add completion message
+            addLoadingStep('✨ Dashboard loaded successfully!', 'completed');
             
             setTimeout(() => {
                 hideLoader();
@@ -929,15 +1199,44 @@
             
         } catch (error) {
             console.error('Error:', error);
+            
+            // Show error in loading steps
+            addLoadingStep(`❌ Error: ${error.message}`, 'error');
             updateLoader(0, 'Error loading data', error.message);
+            
             setTimeout(() => {
                 hideLoader();
                 alert('Failed to load data: ' + error.message);
-            }, 1500);
+            }, 2000);
         }
     }
     
-    // Update summary cards with state filtering
+    // Helper functions for loading steps
+    function addLoadingStep(text, status = '') {
+        const step = $('<div class="loading-step ' + status + '">' +
+            '<i class="fas fa-circle-notch fa-spin"></i>' +
+            '<span>' + text + '</span>' +
+        '</div>');
+        $('#loading-details').append(step);
+        
+        // Auto-scroll to latest step
+        const container = $('#loading-details');
+        container.scrollTop(container[0].scrollHeight);
+    }
+    
+    function completeLoadingStep(index) {
+        const steps = $('#loading-details .loading-step');
+        if (steps.length > index) {
+            $(steps[index]).removeClass('active').addClass('completed');
+            $(steps[index]).find('i').removeClass('fa-circle-notch fa-spin');
+        }
+    }
+    
+    function simulateDelay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    
+    // Update summary cards with filtering (EXCLUDING Crisp/Youtube from main totals, but showing YouTube separately)
     function updateSummaryCards() {
         const dailyData = monthData.daily_data || [];
         const selectedBucket = $('#bucket-filter').val();
@@ -951,45 +1250,41 @@
             unqualified: 0
         };
         
+        // Separate totals for Crisp/Youtube
+        const youtubeTotals = {
+            spend: 0,
+            leads: 0,
+            cases: 0,
+            retainers: 0,
+            inPractice: 0,
+            unqualified: 0
+        };
+        
+        // Calculate totals based on current filters
         dailyData.forEach(day => {
             if (!day.isFuture && !day.is_future) {
-                if (currentStateFilter === 'all') {
-                    // All states
-                    if (selectedBucket === 'all' || selectedBucket === 'breakdown') {
-                        totals.spend += day.spend || 0;
-                        totals.leads += day.leads || 0;
-                        totals.cases += day.cases || 0;
-                        totals.retainers += day.retainers || 0;
-                        totals.inPractice += day.inPractice || day.in_practice || 0;
-                        totals.unqualified += day.unqualified || 0;
-                    } else {
-                        if (day.buckets) {
-                            const bucket = day.buckets.find(b => b.name === selectedBucket);
-                            if (bucket) {
-                                totals.spend += bucket.spend || 0;
-                                totals.leads += bucket.leads || 0;
-                                totals.cases += bucket.cases || 0;
-                                totals.retainers += bucket.retainers || 0;
-                                totals.inPractice += bucket.inPractice || bucket.in_practice || 0;
-                                totals.unqualified += bucket.unqualified || 0;
-                            }
+                // Get main totals excluding Crisp/Youtube
+                let dayData = calculateDayData(day, selectedBucket, currentStateFilter, true);
+                
+                totals.spend += dayData.spend;
+                totals.leads += dayData.leads;
+                totals.cases += dayData.cases;
+                totals.retainers += dayData.retainers;
+                totals.inPractice += dayData.inPractice;
+                totals.unqualified += dayData.unqualified;
+                
+                // Calculate Crisp/Youtube separately if showing all buckets
+                if ((selectedBucket === 'all' || selectedBucket === 'breakdown') && currentStateFilter === 'all' && day.buckets) {
+                    day.buckets.forEach(bucket => {
+                        if (bucket.name.includes('Youtube') || bucket.name.includes('Crisp')) {
+                            youtubeTotals.spend += bucket.spend || 0;
+                            youtubeTotals.leads += bucket.leads || 0;
+                            youtubeTotals.cases += bucket.cases || 0;
+                            youtubeTotals.retainers += bucket.retainers || 0;
+                            youtubeTotals.inPractice += bucket.inPractice || bucket.in_practice || 0;
+                            youtubeTotals.unqualified += bucket.unqualified || 0;
                         }
-                    }
-                } else {
-                    // Filter by specific state
-                    if (day.buckets) {
-                        day.buckets.forEach(bucket => {
-                            const bucketState = getStateFromBucket(bucket.name);
-                            if (bucketState === currentStateFilter) {
-                                totals.spend += bucket.spend || 0;
-                                totals.leads += bucket.leads || 0;
-                                totals.cases += bucket.cases || 0;
-                                totals.retainers += bucket.retainers || 0;
-                                totals.inPractice += bucket.inPractice || bucket.in_practice || 0;
-                                totals.unqualified += bucket.unqualified || 0;
-                            }
-                        });
-                    }
+                    });
                 }
             }
         });
@@ -999,46 +1294,45 @@
         const avgCpr = totals.retainers > 0 ? totals.spend / totals.retainers : 0;
         const convRate = totals.leads > 0 ? (totals.retainers / totals.leads) * 100 : 0;
         
+        // Calculate YouTube metrics
+        const ytCpl = youtubeTotals.leads > 0 ? youtubeTotals.spend / youtubeTotals.leads : 0;
+        const ytConvRate = youtubeTotals.leads > 0 ? (youtubeTotals.retainers / youtubeTotals.leads) * 100 : 0;
+        
         const filterLabel = currentStateFilter !== 'all' ? 
             `${currentStateFilter} State` : 
-            (selectedBucket !== 'all' && selectedBucket !== 'breakdown' ? selectedBucket : 'All Buckets');
+            (selectedBucket !== 'all' && selectedBucket !== 'breakdown' ? 
+                selectedBucket : 'All Buckets');
         
-        const cards = `
+        let cards = `
             <div class="metric-card">
                 <div class="metric-label">Total Spend</div>
                 <div class="metric-value text-cost">${formatCurrency(totals.spend)}</div>
-                <div class="metric-change text-gray-500 text-xs">${filterLabel}</div>
+                <div class="metric-change text-gray-500 text-xs">
+                    ${filterLabel} (excl. YouTube)
+                </div>
             </div>
             
             <div class="metric-card">
                 <div class="metric-label">Total Leads</div>
                 <div class="metric-value text-leads">${formatNumber(totals.leads)}</div>
                 <div class="metric-change text-gray-500 text-xs">
-                    ${totals.leads > 0 ? formatCurrency(totals.spend / totals.leads) + ' avg' : ''}
-                </div>
-            </div>
-            
-            <div class="metric-card">
-                <div class="metric-label">Total Cases</div>
-                <div class="metric-value text-cases">${formatNumber(totals.cases)}</div>
-                <div class="metric-change text-gray-500 text-xs">
-                    ${totals.leads > 0 ? ((totals.cases / totals.leads) * 100).toFixed(1) + '% of leads' : ''}
-                </div>
-            </div>
-            
-            <div class="metric-card">
-                <div class="metric-label">Total Retainers</div>
-                <div class="metric-value text-retainers">${formatNumber(totals.retainers)}</div>
-                <div class="metric-change text-gray-500 text-xs">
-                    ${totals.cases > 0 ? ((totals.retainers / totals.cases) * 100).toFixed(1) + '% of cases' : ''}
+                    ${dailyData.length} days (excl. YouTube)
                 </div>
             </div>
             
             <div class="metric-card">
                 <div class="metric-label">In Practice</div>
-                <div class="metric-value text-cases">${formatNumber(totals.inPractice)}</div>
+                <div class="metric-value">${formatNumber(totals.inPractice)}</div>
                 <div class="metric-change text-gray-500 text-xs">
                     ${totals.leads > 0 ? ((totals.inPractice / totals.leads) * 100).toFixed(1) + '% of leads' : ''}
+                </div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">Unqualified</div>
+                <div class="metric-value">${formatNumber(totals.unqualified)}</div>
+                <div class="metric-change text-gray-500 text-xs">
+                    ${totals.leads > 0 ? ((totals.unqualified / totals.leads) * 100).toFixed(1) + '% of leads' : ''}
                 </div>
             </div>
             
@@ -1046,7 +1340,7 @@
                 <div class="metric-label">Avg CPL</div>
                 <div class="metric-value text-cost">${formatCurrency(avgCpl)}</div>
                 <div class="metric-change text-gray-500 text-xs">
-                    ${totals.leads > 0 ? 'Per lead' : ''}
+                    ${totals.leads > 0 ? 'Per lead (excl. YT)' : ''}
                 </div>
             </div>
             
@@ -1054,7 +1348,7 @@
                 <div class="metric-label">Avg CPA</div>
                 <div class="metric-value text-cost">${formatCurrency(avgCpa)}</div>
                 <div class="metric-change text-gray-500 text-xs">
-                    ${totals.cases > 0 ? 'Per case' : ''}
+                    ${totals.cases > 0 ? 'Per case (excl. YT)' : ''}
                 </div>
             </div>
             
@@ -1067,7 +1361,106 @@
             </div>
         `;
         
+        // Add YouTube card if there's data and we're showing all buckets
+        if ((youtubeTotals.spend > 0 || youtubeTotals.leads > 0) && 
+            currentStateFilter === 'all' && 
+            (selectedBucket === 'all' || selectedBucket === 'breakdown')) {
+            cards += `
+                <div class="metric-card" style="background: linear-gradient(135deg, #fee2e2, #fecaca); border-color: #dc2626;">
+                    <div class="metric-label" style="color: #991b1b;">
+                        <i class="fab fa-youtube" style="margin-right: 4px;"></i>CRISP/YOUTUBE
+                    </div>
+                    <div class="metric-value" style="color: #dc2626;">${formatCurrency(youtubeTotals.spend)}</div>
+                    <div class="metric-change text-xs" style="color: #b91c1c;">
+                        ${youtubeTotals.leads} leads | CPL: ${formatCurrency(ytCpl)} | Conv: ${formatPercent(ytConvRate / 100)}
+                    </div>
+                </div>
+            `;
+        }
+        
         $('#summary-cards').html(cards);
+    }
+    
+    // Calculate day data based on filters
+    function calculateDayData(day, bucketFilter, stateFilter, excludeCrispYoutube = false) {
+        let result = {
+            spend: 0,
+            leads: 0,
+            cases: 0,
+            retainers: 0,
+            inPractice: 0,
+            unqualified: 0,
+            cpl: 0,
+            cpa: 0,
+            cpr: 0,
+            convRate: 0
+        };
+        
+        if (stateFilter === 'all') {
+            // All states
+            if (bucketFilter === 'all' || bucketFilter === 'breakdown') {
+                // Use day totals, but exclude Crisp/Youtube if needed
+                if (excludeCrispYoutube && day.buckets) {
+                    // Calculate totals excluding Crisp/Youtube buckets
+                    day.buckets.forEach(bucket => {
+                        if (!bucket.name.includes('Youtube') && !bucket.name.includes('Crisp')) {
+                            result.spend += bucket.spend || 0;
+                            result.leads += bucket.leads || 0;
+                            result.cases += bucket.cases || 0;
+                            result.retainers += bucket.retainers || 0;
+                            result.inPractice += bucket.inPractice || bucket.in_practice || 0;
+                            result.unqualified += bucket.unqualified || 0;
+                        }
+                    });
+                } else {
+                    // Use day totals as-is
+                    result.spend = day.spend || 0;
+                    result.leads = day.leads || 0;
+                    result.cases = day.cases || 0;
+                    result.retainers = day.retainers || 0;
+                    result.inPractice = day.inPractice || day.in_practice || 0;
+                    result.unqualified = day.unqualified || 0;
+                }
+            } else {
+                // Specific bucket
+                if (day.buckets) {
+                    const bucket = day.buckets.find(b => b.name === bucketFilter);
+                    if (bucket && (!excludeCrispYoutube || (!bucket.name.includes('Youtube') && !bucket.name.includes('Crisp')))) {
+                        result.spend = bucket.spend || 0;
+                        result.leads = bucket.leads || 0;
+                        result.cases = bucket.cases || 0;
+                        result.retainers = bucket.retainers || 0;
+                        result.inPractice = bucket.inPractice || bucket.in_practice || 0;
+                        result.unqualified = bucket.unqualified || 0;
+                    }
+                }
+            }
+        } else {
+            // Specific state - aggregate buckets for that state
+            if (day.buckets) {
+                day.buckets.forEach(bucket => {
+                    const bucketState = getStateFromBucket(bucket.name);
+                    if (bucketState === stateFilter && (!excludeCrispYoutube || (!bucket.name.includes('Youtube') && !bucket.name.includes('Crisp')))) {
+                        if (bucketFilter === 'all' || bucketFilter === 'breakdown' || bucket.name === bucketFilter) {
+                            result.spend += bucket.spend || 0;
+                            result.leads += bucket.leads || 0;
+                            result.cases += bucket.cases || 0;
+                            result.retainers += bucket.retainers || 0;
+                            result.inPractice += bucket.inPractice || bucket.in_practice || 0;
+                            result.unqualified += bucket.unqualified || 0;
+                        }
+                    }
+                });
+            }
+        }
+        
+        // Calculate derived metrics
+        result.cpl = result.leads > 0 ? result.spend / result.leads : 0;
+        result.cpa = result.cases > 0 ? result.spend / result.cases : 0;
+        result.cpr = result.retainers > 0 ? result.spend / result.retainers : 0;
+        result.convRate = result.leads > 0 ? (result.retainers / result.leads) : 0;
+        
+        return result;
     }
     
     // Update bucket filter based on state
@@ -1099,117 +1492,112 @@
         }
     }
     
-    // Render table with state filtering
+    // Render table with filtering and totals
     function renderTable() {
         const tbody = $('#table-body');
         tbody.empty();
         
         const dailyData = monthData.daily_data || [];
+        const selectedBucket = $('#bucket-filter').val();
         
         if (dailyData.length === 0) {
             tbody.append('<tr><td colspan="13" class="text-center py-8 text-gray-500">No data available</td></tr>');
             return;
         }
         
-        let bucketRowIndex = 0;
+        // Variables for totals row (EXCLUDING Crisp/Youtube)
+        const columnTotals = {
+            spend: 0,
+            leads: 0,
+            inPractice: 0,
+            unqualified: 0,
+            cases: 0,
+            retainers: 0
+        };
         
+        // Variables for Crisp/Youtube totals
+        const crispYoutubeTotals = {
+            spend: 0,
+            leads: 0,
+            inPractice: 0,
+            unqualified: 0,
+            cases: 0,
+            retainers: 0
+        };
+        
+        let todayRowIndex = -1;
+        const today = new Date();
+        const todayDay = today.getDate();
+        
+        // Render each day
         dailyData.forEach((day, index) => {
-            const isToday = day.isToday || day.is_today || false;
-            const isWeekend = day.isWeekend || day.is_weekend || false;
-            const isFuture = day.isFuture || day.is_future || false;
+            const isFuture = day.isFuture || day.is_future;
+            const isWeekend = day.isWeekend || day.is_weekend;
             const hasBuckets = day.buckets && day.buckets.length > 0;
             
-            // Calculate day totals based on state filter
-            let dayData = {
-                spend: 0,
-                leads: 0,
-                inPractice: 0,
-                unqualified: 0,
-                cases: 0,
-                retainers: 0,
-                cpl: 0,
-                cpa: 0,
-                cpr: 0,
-                convRate: 0
-            };
+            // Check if this is today's row
+            const dayNum = day.dayNum || day.day_num || index + 1;
+            const isToday = !isFuture && dayNum === todayDay;
+            if (isToday) {
+                todayRowIndex = index;
+            }
             
-            if (currentStateFilter === 'all') {
-                // Use original day data
-                dayData = {
-                    spend: day.spend || 0,
-                    leads: day.leads || 0,
-                    inPractice: day.inPractice || day.in_practice || 0,
-                    unqualified: day.unqualified || 0,
-                    cases: day.cases || 0,
-                    retainers: day.retainers || 0,
-                    cpl: day.cpl || 0,
-                    cpa: day.cpa || 0,
-                    cpr: day.cpr || 0,
-                    convRate: day.convRate || day.conv_rate || 0
-                };
-            } else {
-                // Sum up data for selected state only
-                if (day.buckets) {
+            // Calculate day data based on filters
+            const dayData = calculateDayData(day, selectedBucket, currentStateFilter);
+            
+            // Only add to totals if not a future day
+            if (!isFuture) {
+                // Calculate separate totals excluding Crisp/Youtube
+                const dayDataExcludingYoutube = calculateDayData(day, selectedBucket, currentStateFilter, true);
+                columnTotals.spend += dayDataExcludingYoutube.spend;
+                columnTotals.leads += dayDataExcludingYoutube.leads;
+                columnTotals.inPractice += dayDataExcludingYoutube.inPractice;
+                columnTotals.unqualified += dayDataExcludingYoutube.unqualified;
+                columnTotals.cases += dayDataExcludingYoutube.cases;
+                columnTotals.retainers += dayDataExcludingYoutube.retainers;
+                
+                // Track Crisp/Youtube separately if showing all buckets
+                if ((selectedBucket === 'all' || selectedBucket === 'breakdown') && currentStateFilter === 'all' && day.buckets) {
                     day.buckets.forEach(bucket => {
-                        const bucketState = getStateFromBucket(bucket.name);
-                        if (bucketState === currentStateFilter) {
-                            dayData.spend += bucket.spend || 0;
-                            dayData.leads += bucket.leads || 0;
-                            dayData.inPractice += bucket.inPractice || bucket.in_practice || 0;
-                            dayData.unqualified += bucket.unqualified || 0;
-                            dayData.cases += bucket.cases || 0;
-                            dayData.retainers += bucket.retainers || 0;
+                        if (bucket.name.includes('Youtube') || bucket.name.includes('Crisp')) {
+                            crispYoutubeTotals.spend += bucket.spend || 0;
+                            crispYoutubeTotals.leads += bucket.leads || 0;
+                            crispYoutubeTotals.inPractice += bucket.inPractice || bucket.in_practice || 0;
+                            crispYoutubeTotals.unqualified += bucket.unqualified || 0;
+                            crispYoutubeTotals.cases += bucket.cases || 0;
+                            crispYoutubeTotals.retainers += bucket.retainers || 0;
                         }
                     });
-                    
-                    // Calculate averages
-                    if (dayData.leads > 0) {
-                        dayData.cpl = dayData.spend / dayData.leads;
-                        dayData.convRate = (dayData.retainers / dayData.leads);
-                    }
-                    if (dayData.cases > 0) {
-                        dayData.cpa = dayData.spend / dayData.cases;
-                    }
-                    if (dayData.retainers > 0) {
-                        dayData.cpr = dayData.spend / dayData.retainers;
-                    }
                 }
             }
             
-            // Skip row if no data for selected state (unless it's a future date)
-            if (currentStateFilter !== 'all' && dayData.spend === 0 && dayData.leads === 0 && !isFuture) {
-                return;
-            }
-            
-            const inPracticePct = dayData.leads > 0 ? (dayData.inPractice / dayData.leads) * 100 : 0;
-            const unqualifiedPct = dayData.leads > 0 ? (dayData.unqualified / dayData.leads) * 100 : 0;
+            const inPracticePct = dayData.leads > 0 ? (dayData.inPractice / dayData.leads) : 0;
+            const unqualifiedPct = dayData.leads > 0 ? (dayData.unqualified / dayData.leads) : 0;
             
             let rowClass = '';
-            if (isToday) rowClass = 'row-today';
-            else if (isWeekend) rowClass = 'row-weekend';
-            else if (isFuture) rowClass = 'row-future';
-            
-            if (hasBuckets && currentFilter === 'breakdown' && !isFuture) {
-                rowClass += ' has-buckets';
-            }
+            if (isFuture) rowClass = 'future-row';
+            else if (isToday) rowClass = 'today-row';
+            else if (isWeekend) rowClass = 'weekend-row';
+            if (hasBuckets && currentFilter === 'breakdown') rowClass += ' has-buckets';
             
             const dateDisplay = `
                 <div class="date-cell">
-                    ${hasBuckets && currentFilter === 'breakdown' && !isFuture ? 
+                    ${hasBuckets && currentFilter === 'breakdown' ? 
                         '<i class="fas fa-chevron-right chevron"></i>' : 
                         '<span style="width: 14px; display: inline-block;"></span>'}
                     <div>
-                        <div class="date-num">${day.dayNum || day.day_num || index + 1}</div>
+                        <div class="date-num">${dayNum}</div>
                         <div class="date-day">${day.dayName || day.day_name || ''}</div>
                     </div>
+                    ${isToday ? '<span class="today-indicator">TODAY</span>' : ''}
                 </div>
             `;
             
-            const spendDelta = currentStateFilter === 'all' ? (day.spendDelta || day.spend_delta || null) : null;
-            const leadsDelta = currentStateFilter === 'all' ? (day.leadsDelta || day.leads_delta || null) : null;
+            const spendDelta = currentStateFilter === 'all' && selectedBucket === 'all' ? (day.spendDelta || day.spend_delta || null) : null;
+            const leadsDelta = currentStateFilter === 'all' && selectedBucket === 'all' ? (day.leadsDelta || day.leads_delta || null) : null;
             
             const row = $(
-                '<tr class="' + rowClass + '" data-index="' + index + '">' +
+                '<tr class="' + rowClass + '" data-index="' + index + '" id="row-' + index + '">' +
                     '<td>' + dateDisplay + '</td>' +
                     '<td>' +
                         '<div class="metric-value-main">' + formatCurrency(dayData.spend) + '</div>' +
@@ -1221,9 +1609,9 @@
                         (leadsDelta !== null && leadsDelta !== undefined ? 
                             '<div class="metric-delta ' + getDeltaClass(leadsDelta, false) + '">' + formatDelta(leadsDelta, true) + '</div>' : '') +
                     '</td>' +
-                    '<td>' + formatPercent(inPracticePct / 100) + '</td>' +
+                    '<td>' + formatPercent(inPracticePct) + '</td>' +
                     '<td>' + formatNumber(dayData.inPractice) + '</td>' +
-                    '<td>' + formatPercent(unqualifiedPct / 100) + '</td>' +
+                    '<td>' + formatPercent(unqualifiedPct) + '</td>' +
                     '<td>' + formatNumber(dayData.unqualified) + '</td>' +
                     '<td>' + formatCurrency(dayData.cpl) + '</td>' +
                     '<td>' + formatNumber(dayData.cases) + '</td>' +
@@ -1236,58 +1624,127 @@
             
             tbody.append(row);
             
+            // Add bucket rows if in breakdown mode
             if (hasBuckets && currentFilter === 'breakdown') {
-                // Filter buckets by state if needed
                 const bucketsToShow = currentStateFilter === 'all' ? 
                     day.buckets : 
                     day.buckets.filter(b => getStateFromBucket(b.name) === currentStateFilter);
                 
-                bucketsToShow.forEach((bucket, bucketIndex) => {
-                    bucketRowIndex++;
-                    const bucketInPractice = bucket.inPractice || bucket.in_practice || 0;
-                    const bucketUnqualified = bucket.unqualified || 0;
-                    const bucketLeads = bucket.leads || 0;
-                    const bucketInPracticePct = bucketLeads > 0 ? (bucketInPractice / bucketLeads) * 100 : 0;
-                    const bucketUnqualifiedPct = bucketLeads > 0 ? (bucketUnqualified / bucketLeads) * 100 : 0;
+                bucketsToShow.forEach(bucket => {
+                    const bucketInPracticePct = bucket.leads > 0 ? (bucket.inPractice || bucket.in_practice || 0) / bucket.leads : 0;
+                    const bucketUnqualifiedPct = bucket.leads > 0 ? (bucket.unqualified || 0) / bucket.leads : 0;
                     
-                    const bucketRowClass = bucketRowIndex % 2 === 0 ? 'even' : 'odd';
+                    // Get bucket color class
+                    const bucketColorClass = getBucketColorClass(bucket.name);
                     
                     const bucketRow = $(
-                        '<tr class="bucket-row bucket-row-' + bucketRowClass + '" data-parent="' + index + '">' +
-                            '<td>' +
-                                '<div style="margin-left: 2.5rem;">' +
-                                    '<span class="bucket-badge bucket-' + bucket.name.toLowerCase().replace(/\s+/g, '-') + '">' +
-                                        bucket.name +
-                                    '</span>' +
-                                '</div>' +
-                            '</td>' +
-                            '<td><div class="font-medium">' + formatCurrency(bucket.spend || 0) + '</div></td>' +
-                            '<td><div class="font-medium">' + formatNumber(bucketLeads) + '</div></td>' +
-                            '<td>' + formatPercent(bucketInPracticePct / 100) + '</td>' +
-                            '<td>' + formatNumber(bucketInPractice) + '</td>' +
-                            '<td>' + formatPercent(bucketUnqualifiedPct / 100) + '</td>' +
-                            '<td>' + formatNumber(bucketUnqualified) + '</td>' +
-                            '<td>' + formatCurrency(bucket.cpl || 0) + '</td>' +
-                            '<td>' + formatNumber(bucket.cases || 0) + '</td>' +
-                            '<td>' + formatCurrency(bucket.cpa || 0) + '</td>' +
-                            '<td>' + formatNumber(bucket.retainers || 0) + '</td>' +
-                            '<td>' + formatCurrency(bucket.cpr || 0) + '</td>' +
-                            '<td>' + formatPercent((bucket.convRate || bucket.conv_rate || 0)) + '</td>' +
+                        '<tr class="bucket-row" data-parent="' + index + '">' +
+                            '<td style="padding-left: 3rem;"><span class="bucket-badge ' + bucketColorClass + '">' + bucket.name + '</span></td>' +
+                            '<td>' + formatCurrency(bucket.spend) + '</td>' +
+                            '<td>' + formatNumber(bucket.leads) + '</td>' +
+                            '<td>' + formatPercent(bucketInPracticePct) + '</td>' +
+                            '<td>' + formatNumber(bucket.inPractice || bucket.in_practice) + '</td>' +
+                            '<td>' + formatPercent(bucketUnqualifiedPct) + '</td>' +
+                            '<td>' + formatNumber(bucket.unqualified) + '</td>' +
+                            '<td>' + formatCurrency(bucket.cpl) + '</td>' +
+                            '<td>' + formatNumber(bucket.cases) + '</td>' +
+                            '<td>' + formatCurrency(bucket.cpa) + '</td>' +
+                            '<td>' + formatNumber(bucket.retainers) + '</td>' +
+                            '<td>' + formatCurrency(bucket.cpr) + '</td>' +
+                            '<td>' + formatPercent(bucket.convRate || bucket.conv_rate || 0) + '</td>' +
                         '</tr>'
                     );
+                    
                     tbody.append(bucketRow);
                 });
-                
-                if (!isFuture && bucketsToShow.length > 0) {
-                    row.on('click', function() {
-                        toggleBuckets(index);
-                    });
-                }
             }
         });
+        
+        // Add totals row (EXCLUDING Crisp/Youtube)
+        const avgCpl = columnTotals.leads > 0 ? columnTotals.spend / columnTotals.leads : 0;
+        const avgCpa = columnTotals.cases > 0 ? columnTotals.spend / columnTotals.cases : 0;
+        const avgCpr = columnTotals.retainers > 0 ? columnTotals.spend / columnTotals.retainers : 0;
+        const convRate = columnTotals.leads > 0 ? (columnTotals.retainers / columnTotals.leads) : 0;
+        const inPracticePct = columnTotals.leads > 0 ? (columnTotals.inPractice / columnTotals.leads) : 0;
+        const unqualifiedPct = columnTotals.leads > 0 ? (columnTotals.unqualified / columnTotals.leads) : 0;
+        
+        const totalRow = $(
+            '<tr class="total-row">' +
+                '<td><strong>SUBTOTAL (excl. YouTube)</strong></td>' +
+                '<td><strong>' + formatCurrency(columnTotals.spend) + '</strong></td>' +
+                '<td><strong>' + formatNumber(columnTotals.leads) + '</strong></td>' +
+                '<td><strong>' + formatPercent(inPracticePct) + '</strong></td>' +
+                '<td><strong>' + formatNumber(columnTotals.inPractice) + '</strong></td>' +
+                '<td><strong>' + formatPercent(unqualifiedPct) + '</strong></td>' +
+                '<td><strong>' + formatNumber(columnTotals.unqualified) + '</strong></td>' +
+                '<td><strong>' + formatCurrency(avgCpl) + '</strong></td>' +
+                '<td><strong>' + formatNumber(columnTotals.cases) + '</strong></td>' +
+                '<td><strong>' + formatCurrency(avgCpa) + '</strong></td>' +
+                '<td><strong>' + formatNumber(columnTotals.retainers) + '</strong></td>' +
+                '<td><strong>' + formatCurrency(avgCpr) + '</strong></td>' +
+                '<td><strong>' + formatPercent(convRate) + '</strong></td>' +
+            '</tr>'
+        );
+        
+        tbody.append(totalRow);
+        
+        // Add Crisp/Youtube row if there's data
+        if (crispYoutubeTotals.spend > 0 || crispYoutubeTotals.leads > 0) {
+            const ytCpl = crispYoutubeTotals.leads > 0 ? crispYoutubeTotals.spend / crispYoutubeTotals.leads : 0;
+            const ytCpa = crispYoutubeTotals.cases > 0 ? crispYoutubeTotals.spend / crispYoutubeTotals.cases : 0;
+            const ytCpr = crispYoutubeTotals.retainers > 0 ? crispYoutubeTotals.spend / crispYoutubeTotals.retainers : 0;
+            const ytConvRate = crispYoutubeTotals.leads > 0 ? (crispYoutubeTotals.retainers / crispYoutubeTotals.leads) : 0;
+            const ytInPracticePct = crispYoutubeTotals.leads > 0 ? (crispYoutubeTotals.inPractice / crispYoutubeTotals.leads) : 0;
+            const ytUnqualifiedPct = crispYoutubeTotals.leads > 0 ? (crispYoutubeTotals.unqualified / crispYoutubeTotals.leads) : 0;
+            
+            const youtubeRow = $(
+                '<tr style="background: linear-gradient(135deg, #fee2e2, #fecaca); font-weight: 600;">' +
+                    '<td><span class="bucket-badge bucket-youtube">Crisp/Youtube</span></td>' +
+                    '<td>' + formatCurrency(crispYoutubeTotals.spend) + '</td>' +
+                    '<td>' + formatNumber(crispYoutubeTotals.leads) + '</td>' +
+                    '<td>' + formatPercent(ytInPracticePct) + '</td>' +
+                    '<td>' + formatNumber(crispYoutubeTotals.inPractice) + '</td>' +
+                    '<td>' + formatPercent(ytUnqualifiedPct) + '</td>' +
+                    '<td>' + formatNumber(crispYoutubeTotals.unqualified) + '</td>' +
+                    '<td>' + formatCurrency(ytCpl) + '</td>' +
+                    '<td>' + formatNumber(crispYoutubeTotals.cases) + '</td>' +
+                    '<td>' + formatCurrency(ytCpa) + '</td>' +
+                    '<td>' + formatNumber(crispYoutubeTotals.retainers) + '</td>' +
+                    '<td>' + formatCurrency(ytCpr) + '</td>' +
+                    '<td>' + formatPercent(ytConvRate) + '</td>' +
+                '</tr>'
+            );
+            
+            tbody.append(youtubeRow);
+        }
+        
+        // Add click handlers for expandable rows
+        $('.has-buckets').off('click').on('click', function(e) {
+            if (!$(e.target).closest('a').length) {
+                const index = $(this).data('index');
+                toggleBuckets(index);
+            }
+        });
+        
+        // Scroll to today's row if found
+        if (todayRowIndex >= 0) {
+            setTimeout(() => {
+                const todayRow = $('#row-' + todayRowIndex);
+                if (todayRow.length) {
+                    const container = $('.data-table .overflow-x-auto');
+                    const rowTop = todayRow.position().top;
+                    const containerHeight = container.height();
+                    const scrollPosition = rowTop - (containerHeight / 3); // Position today's row in upper third
+                    
+                    container.animate({
+                        scrollTop: scrollPosition
+                    }, 500, 'swing');
+                }
+            }, 100); // Small delay to ensure DOM is ready
+        }
     }
     
-    // Toggle buckets
+    // Toggle bucket rows
     function toggleBuckets(index) {
         const bucketRows = $(`.bucket-row[data-parent="${index}"]`);
         const chevron = $(`.has-buckets[data-index="${index}"] .chevron, tr[data-index="${index}"] .chevron`);
@@ -1323,6 +1780,10 @@
         } else {
             $('#expand-all, #collapse-all').hide();
         }
+        
+        if (currentView === 'charts') {
+            renderCharts();
+        }
     }
     
     // Change view
@@ -1356,137 +1817,125 @@
         }
     }
     
-    // Render charts with state filtering
+    // Render charts with filtering
     function renderCharts() {
-        Object.values(charts).forEach(chart => chart?.destroy());
-        charts = {};
+        Object.values(chartInstances).forEach(chart => chart.destroy());
+        chartInstances = {};
         
         const dailyData = monthData.daily_data || [];
+        const selectedBucket = $('#bucket-filter').val();
         
-        // Filter and process data based on state
-        const chartData = dailyData.filter(d => !d.isFuture && !d.is_future).map(day => {
-            if (currentStateFilter === 'all') {
-                return day;
-            } else {
-                // Calculate totals for selected state
-                let stateData = {
-                    dayNum: day.dayNum || day.day_num,
-                    spend: 0,
-                    leads: 0,
-                    cases: 0,
-                    retainers: 0,
-                    cpl: 0,
-                    cpa: 0,
-                    cpr: 0,
-                    convRate: 0
-                };
+        // Process data for charts based on filters
+        const labels = [];
+        const spendData = [];
+        const leadsData = [];
+        const cplData = [];
+        const cpaData = [];
+        const cprData = [];
+        const funnelData = {
+            leads: 0,
+            inPractice: 0,
+            cases: 0,
+            retainers: 0
+        };
+        
+        dailyData.forEach(day => {
+            if (!day.isFuture && !day.is_future) {
+                const dayData = calculateDayData(day, selectedBucket, currentStateFilter);
                 
-                if (day.buckets) {
-                    day.buckets.forEach(bucket => {
-                        const bucketState = getStateFromBucket(bucket.name);
-                        if (bucketState === currentStateFilter) {
-                            stateData.spend += bucket.spend || 0;
-                            stateData.leads += bucket.leads || 0;
-                            stateData.cases += bucket.cases || 0;
-                            stateData.retainers += bucket.retainers || 0;
-                        }
-                    });
-                    
-                    // Calculate averages
-                    if (stateData.leads > 0) {
-                        stateData.cpl = stateData.spend / stateData.leads;
-                        stateData.convRate = (stateData.retainers / stateData.leads) * 100;
-                    }
-                    if (stateData.cases > 0) {
-                        stateData.cpa = stateData.spend / stateData.cases;
-                    }
-                    if (stateData.retainers > 0) {
-                        stateData.cpr = stateData.spend / stateData.retainers;
-                    }
-                }
+                labels.push(day.dayNum || day.day_num);
+                spendData.push(dayData.spend);
+                leadsData.push(dayData.leads);
+                cplData.push(dayData.cpl);
+                cpaData.push(dayData.cpa);
+                cprData.push(dayData.cpr);
                 
-                return stateData;
+                funnelData.leads += dayData.leads;
+                funnelData.inPractice += dayData.inPractice;
+                funnelData.cases += dayData.cases;
+                funnelData.retainers += dayData.retainers;
             }
         });
         
-        if (chartData.length === 0) {
-            $('#charts-view').html('<div class="text-center py-20 text-gray-500">No data available for charts</div>');
-            return;
-        }
-        
-        const labels = chartData.map(d => d.dayNum || d.day_num || '');
-        
-        // Chart 1: Spend & Leads
-        charts.spendLeads = new Chart(document.getElementById('chart-spend-leads'), {
+        // Spend & Leads Chart
+        const ctx1 = document.getElementById('chart-spend-leads').getContext('2d');
+        chartInstances.spendLeads = new Chart(ctx1, {
             type: 'line',
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'Daily Spend',
-                    data: chartData.map(d => d.spend || 0),
-                    borderColor: '#8b5cf6',
-                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                    yAxisID: 'y1',
-                    tension: 0.3
+                    label: 'Spend',
+                    data: spendData,
+                    borderColor: 'rgb(239, 68, 68)',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    yAxisID: 'y',
                 }, {
                     label: 'Leads',
-                    data: chartData.map(d => d.leads || 0),
-                    borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    yAxisID: 'y2',
-                    tension: 0.3
+                    data: leadsData,
+                    borderColor: 'rgb(34, 197, 94)',
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    yAxisID: 'y1',
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
                 scales: {
-                    y1: {
+                    y: {
                         type: 'linear',
+                        display: true,
                         position: 'left',
-                        ticks: { 
+                        ticks: {
                             callback: function(value) {
                                 return '$' + value.toLocaleString();
                             }
                         }
                     },
-                    y2: {
+                    y1: {
                         type: 'linear',
+                        display: true,
                         position: 'right',
-                        grid: { drawOnChartArea: false }
+                        grid: {
+                            drawOnChartArea: false,
+                        },
                     }
                 }
             }
         });
         
-        // Chart 2: Cost Metrics
-        charts.costs = new Chart(document.getElementById('chart-costs'), {
+        // Cost Metrics Chart
+        const ctx2 = document.getElementById('chart-costs').getContext('2d');
+        chartInstances.costs = new Chart(ctx2, {
             type: 'line',
             data: {
                 labels: labels,
                 datasets: [{
                     label: 'CPL',
-                    data: chartData.map(d => d.cpl || 0),
-                    borderColor: '#3b82f6',
-                    tension: 0.3
+                    data: cplData,
+                    borderColor: 'rgb(251, 191, 36)',
+                    backgroundColor: 'rgba(251, 191, 36, 0.1)',
                 }, {
                     label: 'CPA',
-                    data: chartData.map(d => d.cpa || 0),
-                    borderColor: '#f59e0b',
-                    tension: 0.3
+                    data: cpaData,
+                    borderColor: 'rgb(168, 85, 247)',
+                    backgroundColor: 'rgba(168, 85, 247, 0.1)',
                 }, {
                     label: 'CPR',
-                    data: chartData.map(d => d.cpr || 0),
-                    borderColor: '#ef4444',
-                    tension: 0.3
+                    data: cprData,
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
-                    y: { 
-                        ticks: { 
+                    y: {
+                        ticks: {
                             callback: function(value) {
                                 return '$' + value.toLocaleString();
                             }
@@ -1496,202 +1945,176 @@
             }
         });
         
-        // Chart 3: Funnel
-        charts.funnel = new Chart(document.getElementById('chart-funnel'), {
+        // Funnel Chart
+        const ctx3 = document.getElementById('chart-funnel').getContext('2d');
+        chartInstances.funnel = new Chart(ctx3, {
             type: 'bar',
             data: {
-                labels: labels,
+                labels: ['Leads', 'In Practice', 'Cases', 'Retainers'],
                 datasets: [{
-                    label: 'Leads',
-                    data: chartData.map(d => d.leads || 0),
-                    backgroundColor: '#3b82f6'
-                }, {
-                    label: 'Cases',
-                    data: chartData.map(d => d.cases || 0),
-                    backgroundColor: '#10b981'
-                }, {
-                    label: 'Retainers',
-                    data: chartData.map(d => d.retainers || 0),
-                    backgroundColor: '#8b5cf6'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false
-            }
-        });
-        
-        // Chart 4: Conversion Rate
-        charts.conversion = new Chart(document.getElementById('chart-conversion'), {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Conversion Rate (%)',
-                    data: chartData.map(d => {
-                        const rate = d.convRate || d.conv_rate || 0;
-                        return rate < 1 ? rate * 100 : rate;
-                    }),
-                    borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    tension: 0.3,
-                    fill: true
+                    label: 'Count',
+                    data: [
+                        funnelData.leads,
+                        funnelData.inPractice,
+                        funnelData.cases,
+                        funnelData.retainers
+                    ],
+                    backgroundColor: [
+                        'rgba(34, 197, 94, 0.8)',
+                        'rgba(59, 130, 246, 0.8)',
+                        'rgba(168, 85, 247, 0.8)',
+                        'rgba(239, 68, 68, 0.8)'
+                    ]
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
-                    y: { 
-                        ticks: { 
-                            callback: function(value) {
-                                return value.toFixed(2) + '%';
-                            }
-                        }
-                    }
-                },
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + '%';
-                            }
-                        }
+                    y: {
+                        beginAtZero: true
                     }
                 }
             }
         });
+        
+        // Bucket Performance Chart
+        if (currentFilter === 'breakdown' && monthData.daily_data) {
+            const bucketTotals = {};
+            
+            dailyData.forEach(day => {
+                if (!day.isFuture && !day.is_future && day.buckets) {
+                    day.buckets.forEach(bucket => {
+                        const bucketState = getStateFromBucket(bucket.name);
+                        if (currentStateFilter === 'all' || bucketState === currentStateFilter) {
+                            if (!bucketTotals[bucket.name]) {
+                                bucketTotals[bucket.name] = {
+                                    spend: 0,
+                                    leads: 0
+                                };
+                            }
+                            bucketTotals[bucket.name].spend += bucket.spend || 0;
+                            bucketTotals[bucket.name].leads += bucket.leads || 0;
+                        }
+                    });
+                }
+            });
+            
+            const bucketNames = Object.keys(bucketTotals);
+            const bucketSpends = bucketNames.map(name => bucketTotals[name].spend);
+            const bucketLeads = bucketNames.map(name => bucketTotals[name].leads);
+            
+            const ctx4 = document.getElementById('chart-buckets').getContext('2d');
+            chartInstances.buckets = new Chart(ctx4, {
+                type: 'bar',
+                data: {
+                    labels: bucketNames,
+                    datasets: [{
+                        label: 'Spend',
+                        data: bucketSpends,
+                        backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                        yAxisID: 'y',
+                    }, {
+                        label: 'Leads',
+                        data: bucketLeads,
+                        backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                        yAxisID: 'y1',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                        }
+                    }
+                }
+            });
+        }
     }
     
-    // Export to CSV function with state filtering
+    // Export to CSV
     function exportToCSV() {
         const dailyData = monthData.daily_data || [];
-        if (dailyData.length === 0) {
-            alert('No data to export');
-            return;
-        }
-        
-        function cleanDollar(value) {
-            return Math.round(parseFloat(value) || 0);
-        }
-        
-        let csvContent = '';
-        const stateLabel = currentStateFilter !== 'all' ? ` - ${currentStateFilter} State` : '';
-        
-        csvContent += `Date,Day,Bucket${stateLabel},Ad Spend,Leads,% In Practice,# In Practice,% Unqualified,# Unqualified,CPL,Cases,CPA,Retainers,CPR,Conv %\n`;
+        const selectedBucket = $('#bucket-filter').val();
+        let csvContent = 'Date,Day,Bucket,Spend,Leads,% In Practice,# In Practice,% Unqualified,# Unqualified,CPL,Cases,CPA,Retainers,CPR,Conv %\n';
         
         dailyData.forEach(day => {
             if (!day.isFuture && !day.is_future) {
+                const date = day.date || '';
                 const dayNum = day.dayNum || day.day_num || '';
-                const dayName = day.dayName || day.day_name || '';
-                const date = `${dayName} ${dayNum}`;
                 
-                if (currentStateFilter === 'all') {
-                    // Export all data
-                    const inPractice = Math.round(day.inPractice || day.in_practice || 0);
-                    const unqualified = Math.round(day.unqualified || 0);
-                    const leads = Math.round(day.leads || 0);
-                    const inPracticePct = leads > 0 ? ((inPractice / leads) * 100).toFixed(1) : '0';
-                    const unqualifiedPct = leads > 0 ? ((unqualified / leads) * 100).toFixed(1) : '0';
-                    const convRate = (day.convRate || day.conv_rate || 0);
-                    const convRateFormatted = convRate < 1 ? (convRate * 100).toFixed(2) : convRate.toFixed(2);
-                    
-                    const spend = cleanDollar(day.spend);
-                    const cpl = cleanDollar(day.cpl);
-                    const cpa = cleanDollar(day.cpa);
-                    const cpr = cleanDollar(day.cpr);
-                    const cases = Math.round(day.cases || 0);
-                    const retainers = Math.round(day.retainers || 0);
-                    
-                    csvContent += `${date},${dayNum},All Buckets,${spend},${leads},${inPracticePct},${inPractice},${unqualifiedPct},${unqualified},${cpl},${cases},${cpa},${retainers},${cpr},${convRateFormatted}\n`;
-                    
-                    if (day.buckets && currentFilter === 'breakdown') {
-                        day.buckets.forEach(bucket => {
-                            const bucketInPractice = Math.round(bucket.inPractice || bucket.in_practice || 0);
-                            const bucketUnqualified = Math.round(bucket.unqualified || 0);
-                            const bucketLeads = Math.round(bucket.leads || 0);
-                            const bucketInPracticePct = bucketLeads > 0 ? ((bucketInPractice / bucketLeads) * 100).toFixed(1) : '0';
-                            const bucketUnqualifiedPct = bucketLeads > 0 ? ((bucketUnqualified / bucketLeads) * 100).toFixed(1) : '0';
-                            const bucketConvRate = (bucket.convRate || bucket.conv_rate || 0);
-                            const bucketConvRateFormatted = bucketConvRate < 1 ? (bucketConvRate * 100).toFixed(2) : bucketConvRate.toFixed(2);
-                            
-                            const bucketSpend = cleanDollar(bucket.spend);
-                            const bucketCpl = cleanDollar(bucket.cpl);
-                            const bucketCpa = cleanDollar(bucket.cpa);
-                            const bucketCpr = cleanDollar(bucket.cpr);
-                            const bucketCases = Math.round(bucket.cases || 0);
-                            const bucketRetainers = Math.round(bucket.retainers || 0);
-                            
-                            csvContent += `${date},${dayNum},${bucket.name},${bucketSpend},${bucketLeads},${bucketInPracticePct},${bucketInPractice},${bucketUnqualifiedPct},${bucketUnqualified},${bucketCpl},${bucketCases},${bucketCpa},${bucketRetainers},${bucketCpr},${bucketConvRateFormatted}\n`;
-                        });
-                    }
-                } else {
-                    // Export only selected state data
-                    let stateData = {
-                        spend: 0,
-                        leads: 0,
-                        inPractice: 0,
-                        unqualified: 0,
-                        cases: 0,
-                        retainers: 0
-                    };
-                    
-                    if (day.buckets) {
-                        day.buckets.forEach(bucket => {
-                            const bucketState = getStateFromBucket(bucket.name);
-                            if (bucketState === currentStateFilter) {
-                                stateData.spend += bucket.spend || 0;
-                                stateData.leads += bucket.leads || 0;
-                                stateData.inPractice += bucket.inPractice || bucket.in_practice || 0;
-                                stateData.unqualified += bucket.unqualified || 0;
-                                stateData.cases += bucket.cases || 0;
-                                stateData.retainers += bucket.retainers || 0;
-                                
-                                // Also export individual bucket rows if in breakdown mode
-                                if (currentFilter === 'breakdown') {
-                                    const bucketInPractice = Math.round(bucket.inPractice || bucket.in_practice || 0);
-                                    const bucketUnqualified = Math.round(bucket.unqualified || 0);
-                                    const bucketLeads = Math.round(bucket.leads || 0);
-                                    const bucketInPracticePct = bucketLeads > 0 ? ((bucketInPractice / bucketLeads) * 100).toFixed(1) : '0';
-                                    const bucketUnqualifiedPct = bucketLeads > 0 ? ((bucketUnqualified / bucketLeads) * 100).toFixed(1) : '0';
-                                    const bucketConvRate = (bucket.convRate || bucket.conv_rate || 0);
-                                    const bucketConvRateFormatted = bucketConvRate < 1 ? (bucketConvRate * 100).toFixed(2) : bucketConvRate.toFixed(2);
-                                    
-                                    csvContent += `${date},${dayNum},${bucket.name},${cleanDollar(bucket.spend)},${bucketLeads},${bucketInPracticePct},${bucketInPractice},${bucketUnqualifiedPct},${bucketUnqualified},${cleanDollar(bucket.cpl)},${Math.round(bucket.cases || 0)},${cleanDollar(bucket.cpa)},${Math.round(bucket.retainers || 0)},${cleanDollar(bucket.cpr)},${bucketConvRateFormatted}\n`;
-                                }
-                            }
-                        });
-                    }
-                    
-                    // Add state total row if there's data and not in breakdown mode
-                    if ((stateData.spend > 0 || stateData.leads > 0) && currentFilter !== 'breakdown') {
-                        const inPracticePct = stateData.leads > 0 ? ((stateData.inPractice / stateData.leads) * 100).toFixed(1) : '0';
-                        const unqualifiedPct = stateData.leads > 0 ? ((stateData.unqualified / stateData.leads) * 100).toFixed(1) : '0';
-                        const cpl = stateData.leads > 0 ? Math.round(stateData.spend / stateData.leads) : 0;
-                        const cpa = stateData.cases > 0 ? Math.round(stateData.spend / stateData.cases) : 0;
-                        const cpr = stateData.retainers > 0 ? Math.round(stateData.spend / stateData.retainers) : 0;
-                        const convRate = stateData.leads > 0 ? ((stateData.retainers / stateData.leads) * 100).toFixed(2) : '0';
+                // Calculate day data based on filters
+                const dayData = calculateDayData(day, selectedBucket, currentStateFilter);
+                
+                if (currentStateFilter === 'all' && selectedBucket === 'breakdown' && day.buckets) {
+                    // Export all buckets
+                    day.buckets.forEach(bucket => {
+                        const bucketInPracticePct = bucket.leads > 0 ? 
+                            ((bucket.inPractice || bucket.in_practice || 0) / bucket.leads * 100).toFixed(1) : '0';
+                        const bucketUnqualifiedPct = bucket.leads > 0 ? 
+                            ((bucket.unqualified || 0) / bucket.leads * 100).toFixed(1) : '0';
+                        const bucketConvRate = ((bucket.convRate || bucket.conv_rate || 0) * 100).toFixed(2);
                         
-                        csvContent += `${date},${dayNum},${currentStateFilter} Total,${Math.round(stateData.spend)},${Math.round(stateData.leads)},${inPracticePct},${Math.round(stateData.inPractice)},${unqualifiedPct},${Math.round(stateData.unqualified)},${cpl},${Math.round(stateData.cases)},${cpa},${Math.round(stateData.retainers)},${cpr},${convRate}\n`;
-                    }
+                        csvContent += date + ',' + dayNum + ',' + bucket.name + ',' + 
+                            Math.round(bucket.spend) + ',' + Math.round(bucket.leads) + ',' + 
+                            bucketInPracticePct + ',' + Math.round(bucket.inPractice || bucket.in_practice || 0) + ',' + 
+                            bucketUnqualifiedPct + ',' + Math.round(bucket.unqualified || 0) + ',' + 
+                            Math.round(bucket.cpl || 0) + ',' + Math.round(bucket.cases || 0) + ',' + 
+                            Math.round(bucket.cpa || 0) + ',' + Math.round(bucket.retainers || 0) + ',' + 
+                            Math.round(bucket.cpr || 0) + ',' + bucketConvRate + '\n';
+                    });
+                } else {
+                    // Export filtered data
+                    const inPracticePct = dayData.leads > 0 ? 
+                        (dayData.inPractice / dayData.leads * 100).toFixed(1) : '0';
+                    const unqualifiedPct = dayData.leads > 0 ? 
+                        (dayData.unqualified / dayData.leads * 100).toFixed(1) : '0';
+                    const convRate = (dayData.convRate * 100).toFixed(2);
+                    
+                    const bucketName = selectedBucket === 'all' ? 'All Buckets' : 
+                                     selectedBucket === 'breakdown' ? 'Daily Total' : selectedBucket;
+                    
+                    csvContent += date + ',' + dayNum + ',' + bucketName + ',' + 
+                        Math.round(dayData.spend) + ',' + Math.round(dayData.leads) + ',' + 
+                        inPracticePct + ',' + Math.round(dayData.inPractice) + ',' + 
+                        unqualifiedPct + ',' + Math.round(dayData.unqualified) + ',' + 
+                        Math.round(dayData.cpl) + ',' + Math.round(dayData.cases) + ',' + 
+                        Math.round(dayData.cpa) + ',' + Math.round(dayData.retainers) + ',' + 
+                        Math.round(dayData.cpr) + ',' + convRate + '\n';
                 }
             }
         });
         
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        
-        const now = new Date();
-        const filename = `current_month_performance_${now.getFullYear()}_${(now.getMonth() + 1).toString().padStart(2, '0')}_${now.getDate().toString().padStart(2, '0')}${stateLabel.replace(' - ', '_').replace(' ', '_')}.csv`;
-        
-        link.setAttribute('href', url);
-        link.setAttribute('download', filename);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'current-month-performance-' + new Date().toISOString().split('T')[0] + '.csv';
+        a.click();
+        window.URL.revokeObjectURL(url);
     }
-</script>
+    
+    // Refresh data
+    function refreshData() {
+        loadData();
+    }
+    </script>
 </body>
 </html>
