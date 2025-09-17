@@ -22,6 +22,9 @@ from services import state
 
 from routes.api_routes import api_bp
 
+
+
+
 # Load environment variables
 load_dotenv()
 
@@ -2917,6 +2920,7 @@ if __name__ == '__main__':
     else:
         logger.warning(f"⚠️ Litify API not connected: {litify_manager.error}")
     
+
     port = int(os.getenv('PORT', 9000))
     is_production = os.getenv('ENVIRONMENT', 'development').lower() == 'production'
     
