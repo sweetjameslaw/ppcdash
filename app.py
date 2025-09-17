@@ -30,6 +30,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+
+
+
 # Try importing optional libraries
 try:
     from google.ads.googleads.client import GoogleAdsClient
