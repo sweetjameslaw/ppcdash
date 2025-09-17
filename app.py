@@ -52,6 +52,10 @@ except ImportError:
     SALESFORCE_AVAILABLE = False
     logger.warning("⚠️ Salesforce API not available")
 
+
+
+
+
 # Initialize Flask app
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'sweet-james-2025')
