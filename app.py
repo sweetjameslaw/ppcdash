@@ -20,6 +20,9 @@ import demo_data  # Import the demo data module
 from performance_boost import optimize_app, global_cache, daily_cache, time_it, parallel_fetch
 
 
+
+
+
 # Load environment variables
 load_dotenv()
 
