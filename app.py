@@ -324,7 +324,7 @@ class GoogleAdsManager:
             return
         
         try:
-            ga_service = self.client.get_service("GoogleAdsService")
+            ga_service = self.client.get_service("GoogleAdsService", version="v16")
             
             # Query to get all accessible customers
             query = """
@@ -391,7 +391,7 @@ class GoogleAdsManager:
         # Iterate through all customer IDs
         for customer_id in self.customer_ids:
             try:
-                ga_service = self.client.get_service("GoogleAdsService")
+                ga_service = self.client.get_service("GoogleAdsService", version="v16")
                 
                 # Query for campaign performance including LSA
                 query = f"""
@@ -2738,8 +2738,8 @@ def debug_campaigns_dump():
         
         # Get customer ID
         customer_id = os.getenv('GOOGLE_ADS_CUSTOMER_ID', '2419159990').replace('-', '')
-        ga_service = ads_manager.client.get_service("GoogleAdsService")
-        
+        ga_service = ads_manager.client.get_service("GoogleAdsService", version="v16")
+
         # Query to get detailed campaign information including CID
         query = """
             SELECT
