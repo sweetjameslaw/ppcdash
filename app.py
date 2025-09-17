@@ -67,6 +67,11 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'sweet-james-2025')
 CORS(app)
 
 
+
+
+
+
+
 app.register_blueprint(api_bp)
 
 # In-Practice Case Types
