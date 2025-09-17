@@ -3999,9 +3999,6 @@ def debug_lsa_spend_check():
                 }
 
 
-
-                
-        
         # Create diagnostic output
         output = {
             'success': True,
