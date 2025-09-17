@@ -3997,6 +3997,10 @@ def debug_lsa_spend_check():
                     'spend': bucket.get('cost', 0),
                     'campaign_count': len(bucket.get('campaigns', []))
                 }
+
+
+
+                
         
         # Create diagnostic output
         output = {
@@ -4233,7 +4237,7 @@ if __name__ == '__main__':
     else:
         logger.warning(f"⚠️ Litify API not connected: {litify_manager.error}")
     
-    port = int(os.getenv('PORT', 8080))
+    port = int(os.getenv('PORT', 8090))
     logger.info(f"📊 Dashboard: http://localhost:{port}")
     logger.info(f"🗺️ Campaign Mapping: http://localhost:{port}/campaign-mapping")
     logger.info(f"📈 Forecasting: http://localhost:{port}/forecasting")
