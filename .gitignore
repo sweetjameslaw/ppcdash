@@ -16,3 +16,14 @@ forecast_settings.json
 old_tests/
 sj-data-dash-modularized/
 *.sh
+campaign_dump_20250826_155717.json
+campaign_dump_20250827_132858.json
+cleanup.sed
+dashboard.html
+litify_fields.txt
+lsa_discovery_20250904_122420.json
+lsa_mapping_20250826_155717.json
+lsa_mapping_20250827_132858.json
+requirements_locked.txt
+salesforce_discovery.json
+salesforce_objects.json
