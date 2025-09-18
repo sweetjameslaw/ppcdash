@@ -586,7 +586,7 @@ def optimize_litify_fetch(litify_manager, start_date=None, end_date=None, limit=
                     # Salesforce returns ISO format, convert to Pacific Time
                     created_dt = datetime.fromisoformat(record.get('CreatedDate').replace('+0000', '+00:00'))
                     created_dt_pt = created_dt.astimezone(PACIFIC_TZ)
-                    created_date_formatted = created_dt_pt.strftime('%m/%d %I:%M %p')
+                    created_date_formatted = created_dt_pt.strftime('%m-%d %I:%M %p')
                 except:
                     created_date_formatted = record.get('CreatedDate')
             

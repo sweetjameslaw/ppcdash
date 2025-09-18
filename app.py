@@ -610,9 +610,9 @@ class LitifyManager:
         except Exception as e:
             logger.warning(f"⚠️ Could not cache case types: {e}")
 
-    def fetch_detailed_leads(self, start_date=None, end_date=None, limit=1000, 
-            include_spam=False, include_abandoned=False, include_duplicate=False,
-            force_refresh=False, count_by_conversion_date=True):
+    def fetch_detailed_leads(self, start_date=None, end_date=None, limit=10000, 
+        include_spam=False, include_abandoned=False, include_duplicate=False,
+        force_refresh=False, count_by_conversion_date=True):
         """Fetch detailed lead information from Litify with Pacific Time support"""
         if not self.client or not self.connected:
             return self.get_demo_litify_leads(include_spam, include_abandoned, include_duplicate)
@@ -620,10 +620,6 @@ class LitifyManager:
         try:
             # Convert dates to Pacific Time
             start_dt_pt, end_dt_pt = get_pacific_date_range(start_date, end_date)
-            
-            # Litify uses different formats for DATE vs DATETIME fields
-            # For DATE fields (Retainer_Signed_Date__c): YYYY-MM-DD
-            # For DATETIME fields (CreatedDate): YYYY-MM-DDTHH:MM:SS.000Z (UTC)
             
             # Convert Pacific Time to UTC for DATETIME fields
             start_dt_utc = start_dt_pt.astimezone(pytz.UTC)
@@ -636,7 +632,6 @@ class LitifyManager:
             datetime_end = end_dt_utc.strftime('%Y-%m-%dT%H:%M:%S.999Z')  # For DATETIME fields
             
             # Query 1: Leads CREATED in date range (for lead counts)
-            # CreatedDate is a DATETIME field, use UTC format
             leads_query = f"""
                 SELECT Id, Name, CreatedDate, 
                     litify_pm__Status__c,
@@ -660,7 +655,6 @@ class LitifyManager:
             """
             
             # Query 2: Leads CONVERTED in date range (for conversion metrics)
-            # Retainer_Signed_Date__c is a DATE field, use YYYY-MM-DD format
             conversions_query = f"""
                 SELECT Id, Name, CreatedDate, 
                     litify_pm__Status__c,
@@ -684,21 +678,21 @@ class LitifyManager:
                 LIMIT {limit}
             """
             
-            # Execute both queries
+            # Execute both queries with pagination
             created_leads = {}
             converted_leads = {}
             
-            # Get leads created in period
+            # Get leads created in period - USE query_all to handle pagination
             logger.info(f"Fetching leads CREATED between {start_dt_pt} and {end_dt_pt} PT...")
-            result = self.client.query(leads_query)
-            for record in result['records']:
+            created_records = self.client.query_all(leads_query)
+            for record in created_records:
                 created_leads[record['Id']] = record
             logger.info(f"   Found {len(created_leads)} leads created in period")
             
-            # Get leads converted in period
+            # Get leads converted in period - USE query_all to handle pagination
             logger.info(f"Fetching leads CONVERTED between {date_format} and {end_date_format} PT...")
-            result = self.client.query(conversions_query)
-            for record in result['records']:
+            converted_records = self.client.query_all(conversions_query)
+            for record in converted_records:
                 converted_leads[record['Id']] = record
             logger.info(f"   Found {len(converted_leads)} leads converted in period")
             
@@ -723,11 +717,6 @@ class LitifyManager:
             utm_campaigns = set()
             excluded_count = 0
             
-            # Debug counters for California Brand
-            ca_brand_created = 0
-            ca_brand_conversions = 0
-            ca_brand_from_previous = 0
-            
             for record in all_records:
                 # Get UTM Campaign
                 utm_campaign = record.get('litify_pm__UTM_Campaign__c', '')
@@ -743,35 +732,28 @@ class LitifyManager:
                             bucket = bucket_name
                             break
                 
-                # Debug logging for California Brand
-                if bucket == 'California Brand':
-                    if record.get('from_previous_period', False):
-                        ca_brand_from_previous += 1
-                        logger.info(f"CA Brand - Previous Period Lead: {record.get('Id')[:8]}...")
-                    else:
-                        ca_brand_created += 1
-                        logger.info(f"CA Brand - Created Today: {record.get('Id')[:8]}...")
-                    
-                    if record.get('Retainer_Signed_Date__c'):
-                        ca_brand_conversions += 1
+                # Get status
+                status = record.get('litify_pm__Status__c', '')
+                if not status:
+                    status = 'Unknown'
                 
-                # Get case type NAME from the relationship field
-                case_type = ''
-                if 'litify_pm__Case_Type__r' in record and record['litify_pm__Case_Type__r']:
-                    case_type = record['litify_pm__Case_Type__r'].get('Name', '')
+                # Determine if converted
+                is_converted = status in ['Signed', 'Retained', 'Retained - Converted']
+                is_pending = status == 'Retainer Sent'
                 
-                # Check if in practice
-                in_practice = False
-                if case_type and case_type in IN_PRACTICE_CASE_TYPES:
-                    in_practice = True
+                # Get case type
+                case_type = record.get('litify_pm__Case_Type__c', '')
+                if not case_type:
+                    case_type_obj = record.get('litify_pm__Case_Type__r')
+                    if case_type_obj and isinstance(case_type_obj, dict):
+                        case_type = case_type_obj.get('Name', '')
                 
-                # Check if it's an excluded type
-                is_excluded = case_type in EXCLUDED_CASE_TYPES
+                # Check if this is an excluded case type
+                is_excluded = case_type in ['Spam', 'Abandoned', 'Duplicate']
                 
-                # Track excluded counts
+                # Apply exclusion filters
                 if is_excluded:
                     excluded_count += 1
-                    # Skip if we should exclude this type
                     if case_type == 'Spam' and not include_spam:
                         continue
                     elif case_type == 'Abandoned' and not include_abandoned:
@@ -779,46 +761,25 @@ class LitifyManager:
                     elif case_type == 'Duplicate' and not include_duplicate:
                         continue
                 
-                # Check for companion case
+                # Determine in_practice
+                in_practice = not is_excluded
+                
+                # Get companion info
                 has_companion = bool(record.get('litify_ext__Companion__c'))
-                
-                # Determine conversion status
-                retainer_signed = record.get('Retainer_Signed_Date__c')
-                status = record.get('litify_pm__Status__c', '')
-                display_name = (record.get('litify_pm__Display_Name__c', '') or '').lower()
                 is_dropped = record.get('isDroppedatIntake__c', False)
-
-                # Status values that indicate a successful conversion
-                CONVERTED_STATUSES = ['Retained', 'Converted', 'Signed']
-
-                # Check if converted (signed retainer OR converted status, not DAI/Referred Out, not dropped, not test)
-                is_converted = (
-                    (retainer_signed is not None or status in CONVERTED_STATUSES) and 
-                    status not in ['Converted DAI', 'Referred Out'] and
-                    not is_dropped and
-                    display_name != 'test'
-                )
                 
-                # Check if pending (Retainer Sent status)
-                is_pending = status == 'Retainer Sent'
+                # Get retainer signed date
+                retainer_signed = record.get('Retainer_Signed_Date__c', '')
                 
-                # Extract instance name for correct Lightning URL
-                instance_url = self.client.base_url
-                if '.my.salesforce.com' in instance_url:
-                    instance_name = instance_url.split('//')[1].split('.')[0]
-                    salesforce_url = f"https://{instance_name}.lightning.force.com/lightning/r/litify_pm__Intake__c/{record.get('Id')}/view"
-                else:
-                    salesforce_url = f"https://sweetjames.lightning.force.com/lightning/r/litify_pm__Intake__c/{record.get('Id')}/view"
-                
-                # Determine if this lead should count for different metrics
-                from_previous_period = record.get('from_previous_period', False)
+                # Get Salesforce URL
+                instance_name = self.instance_url.split('//')[1].split('.')[0] if self.instance_url else 'sweetjames'
+                salesforce_url = f"https://{instance_name}.lightning.force.com/lightning/r/litify_pm__Intake__c/{record.get('Id')}/view"
                 
                 # Format dates for display
                 created_date_raw = record.get('CreatedDate', '')
                 created_date_formatted = ''
                 if created_date_raw:
                     try:
-                        # Salesforce returns ISO format, convert to Pacific Time
                         created_dt = datetime.fromisoformat(created_date_raw.replace('Z', '+00:00'))
                         created_dt_pt = created_dt.astimezone(PACIFIC_TZ)
                         created_date_formatted = created_dt_pt.strftime('%Y-%m-%d %I:%M %p PT')
@@ -830,13 +791,20 @@ class LitifyManager:
                 if retainer_signed and retainer_signed == date_format:
                     converted_today = True
                 
+                # CRITICAL FIX: Determine if this lead should count for different metrics
+                from_previous_period = record.get('from_previous_period', False)
+                
+                # A lead counts for leads metric if it was in the created_leads dictionary
+                # (i.e., it was created in this period, not just converted in this period)
+                was_created_in_period = record['Id'] in created_leads
+                
                 lead_data = {
                     'id': record.get('Id', ''),
                     'salesforce_url': salesforce_url,
-                    'created_date': created_date_raw,  # Raw ISO format for sorting
-                    'created_date_formatted': created_date_formatted,  # Human readable with time
-                    'conversion_date': retainer_signed or '',  # YYYY-MM-DD format or empty
-                    'status': status or 'Unknown',
+                    'created_date': created_date_raw,
+                    'created_date_formatted': created_date_formatted,
+                    'conversion_date': retainer_signed or '',
+                    'status': status,
                     'client_name': (
                         record.get('litify_pm__Display_Name__c', '') or
                         record.get('Client_Name__c', '') or
@@ -844,8 +812,9 @@ class LitifyManager:
                         record.get('Name', '') or
                         'Unknown'
                     ),
-                    'is_converted': is_converted,  
-                    'is_pending': is_pending,  
+                    'is_converted': is_converted,
+                    'converted_today': converted_today,
+                    'is_pending': is_pending,
                     'case_type': case_type or 'Not Set',
                     'in_practice': in_practice,
                     'utm_campaign': utm_campaign or '-',
@@ -857,53 +826,24 @@ class LitifyManager:
                     'is_dropped': is_dropped,
                     'retainer_signed_date': retainer_signed,
                     'from_previous_period': from_previous_period,
-                    # Visual indicators for UI
-                    'is_new_today': not from_previous_period,  # Created today
-                    'converted_today': converted_today,  # Converted today
-                    # CRITICAL FLAGS FOR COUNTING
-                    'count_for_leads': not from_previous_period,  # Only count if created in this period
-                    'count_for_conversions': is_converted  # Count if converted (regardless of creation date)
+                    'count_for_leads': was_created_in_period,  # FIXED: Use was_created_in_period flag
+                    'count_for_conversions': is_converted,
+                    'is_new_today': was_created_in_period  # FIXED: Use was_created_in_period flag
                 }
-                
-                # Debug log for California Brand
-                if bucket == 'California Brand':
-                    logger.info(f"CA Brand Lead Data: ID={lead_data['id'][:8]}..., "
-                               f"count_for_leads={lead_data['count_for_leads']}, "
-                               f"is_converted={lead_data['is_converted']}, "
-                               f"in_practice={lead_data['in_practice']}, "
-                               f"from_previous={lead_data['from_previous_period']}")
                 
                 leads.append(lead_data)
             
-            # Log California Brand summary
-            logger.info(f"CA Brand Summary: {ca_brand_created} created today, "
-                       f"{ca_brand_from_previous} from previous periods, "
-                       f"{ca_brand_conversions} total conversions")
-            
-            # Log summary of case types found
-            case_type_summary = {}
-            for lead in leads:
-                ct = lead['case_type']
-                if ct not in case_type_summary:
-                    case_type_summary[ct] = {'total': 0, 'in_practice': 0, 'converted': 0}
-                case_type_summary[ct]['total'] += 1
-                if lead['in_practice']:
-                    case_type_summary[ct]['in_practice'] += 1
-                if lead['is_converted']:
-                    case_type_summary[ct]['converted'] += 1
-            
-            logger.info(f"Fetched {len(leads)} detailed leads from Litify")
+            logger.info(f"✅ Processed {len(leads)} total records")
             logger.info(f"   - {len([l for l in leads if l['count_for_leads']])} created in period")
-            logger.info(f"   - {len([l for l in leads if l['count_for_conversions']])} converted in period")
             logger.info(f"   - {len([l for l in leads if l['from_previous_period']])} conversions from previous periods")
-            logger.info(f"   - {excluded_count} excluded type leads filtered")
-            logger.info(f"Case type breakdown: {case_type_summary}")
+            logger.info(f"   - {excluded_count} excluded type leads")
             
             return leads
             
         except Exception as e:
-            self.error = str(e)
-            logger.error(f"❌ Error fetching Litify leads: {e}")
+            logger.error(f"❌ Litify query error: {e}")
+            import traceback
+            traceback.print_exc()
             return self.get_demo_litify_leads(include_spam, include_abandoned, include_duplicate)
 
     def fetch_month_to_date_metrics(self, include_spam=False, include_abandoned=False, include_duplicate=False):
@@ -1122,7 +1062,7 @@ def process_campaigns_to_buckets_with_litify(campaigns, litify_leads):
         if data['leads'] > 0:
             data['inPracticePercent'] = round(data['inPractice'] / data['leads'], 3)
             data['costPerLead'] = round(data['cost'] / data['leads'], 2)
-            data['conversionRate'] = round(data['retainers'] / data['leads'], 3)
+            data['conversionRate'] = round(data['cases'] / data['leads'], 3)
         else:
             data['inPracticePercent'] = 0
             data['costPerLead'] = 0
@@ -1328,7 +1268,7 @@ def dashboard_data():
     # Get parameters
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
-    limit = request.args.get('limit', 1000, type=int)
+    limit = request.args.get('limit', 10000, type=int)
     force_refresh = request.args.get('force_refresh', 'false').lower() == 'true'
     
     # Get exclusion filter parameters
@@ -1869,7 +1809,7 @@ def api_forecast_projections():
         # Calculate performance metrics
         current_cpl = current['spend'] / current['leads'] if current['leads'] > 0 else 0
         projected_cpl = projected['spend'] / projected['leads'] if projected['leads'] > 0 else 0
-        current_conversion = (current['retainers'] / current['leads'] * 100) if current['leads'] > 0 else 0
+        current_conversion = (current['cases'] / current['leads'] * 100) if current['leads'] > 0 else 0
         
         # Store state projections
         projections['states'][state] = {
@@ -2838,8 +2778,8 @@ def api_current_month_daily():
             else:
                 day_data['cpr'] = 0
             
-            if day_data['inPractice'] > 0:
-                day_data['convRate'] = round(day_data['retainers'] / day_data['inPractice'], 3)
+            if day_data['leads'] > 0:
+                day_data['convRate'] = round(day_data['cases'] / day_data['leads'], 3)
             else:
                 day_data['convRate'] = 0
             

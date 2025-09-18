@@ -396,6 +396,40 @@
         body.dark-mode .youtube-row {
             background: linear-gradient(135deg, #7f1d1d 0%, #78350f 100%);
         }
+
+        /* Modal animation styles */
+        #customDateModal {
+            transition: opacity 300ms ease-in-out;
+        }
+
+        /* Date input styling for better browser compatibility */
+        input[type="date"] {
+            position: relative;
+        }
+
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            position: absolute;
+            right: 10px;
+            opacity: 0.6;
+            cursor: pointer;
+        }
+
+        body.dark-mode input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+        }
+
+        /* Quick range button hover effects */
+        .quick-range-btn {
+            transition: all 0.2s ease;
+        }
+
+        .quick-range-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .quick-range-btn:active {
+            transform: translateY(0);
+        }
         
         /* Mobile styles */
         @media (max-width: 768px) {
@@ -764,6 +798,53 @@
                 </div>
             </div>
         </div>
+    <!-- Custom Date Range Modal -->
+    <div id="customDateModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+                <div class="mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Select Date Range</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Choose a custom date range for your dashboard</p>
+                </div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Start Date</label>
+                        <input type="date" id="customStartDate" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">End Date</label>
+                        <input type="date" id="customEndDate" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    
+                    <!-- Quick Range Buttons -->
+                    <div class="pt-2 border-t border-gray-200 dark:border-gray-700">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Quick Ranges</p>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button class="quick-range-btn text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600" data-days="7">Last 7 days</button>
+                            <button class="quick-range-btn text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600" data-days="14">Last 14 days</button>
+                            <button class="quick-range-btn text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600" data-days="30">Last 30 days</button>
+                            <button class="quick-range-btn text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600" data-days="60">Last 60 days</button>
+                            <button class="quick-range-btn text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600" data-days="90">Last 90 days</button>
+                            <button class="quick-range-btn text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600" data-range="month-to-date">Month to Date</button>
+                        </div>
+                    </div>
+                    
+                    <div id="customDateError" class="text-red-500 text-sm hidden"></div>
+                </div>
+                
+                <div class="flex justify-end space-x-2 mt-6">
+                    <button id="cancelCustomDate" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors">
+                        Cancel
+                    </button>
+                    <button id="applyCustomDate" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 rounded-md transition-all">
+                        Apply Range
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     </main>
 
     <script>
@@ -893,6 +974,54 @@ $(document).ready(function() {
         $('#clearExclusionBtn').on('click', clearExclusionFilters);
         $('#litifyBucketFilter').on('change', filterLitifyLeads);
         $('#litifyToggle').on('click', toggleLitifyDetail);
+
+        // Custom date modal handlers
+        $(document).on('click', '.date-btn[data-range="custom"]', function(e) {
+            e.preventDefault();
+            openCustomDateModal();
+        });
+
+        $('#cancelCustomDate').on('click', function() {
+            closeCustomDateModal();
+        });
+
+        $('#applyCustomDate').on('click', function() {
+            applyCustomDateRange();
+        });
+
+        // Quick range buttons in modal
+        $(document).on('click', '.quick-range-btn', function() {
+            const days = $(this).data('days');
+            const range = $(this).data('range');
+            const today = new Date();
+            let startDate, endDate;
+            
+            if (days) {
+                endDate = today;
+                startDate = new Date(today);
+                startDate.setDate(startDate.getDate() - (days - 1));
+            } else if (range === 'month-to-date') {
+                endDate = today;
+                startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+            }
+            
+            $('#customStartDate').val(formatDate(startDate));
+            $('#customEndDate').val(formatDate(endDate));
+        });
+
+        // Close modal on backdrop click
+        $('#customDateModal').on('click', function(e) {
+            if (e.target === this) {
+                closeCustomDateModal();
+            }
+        });
+
+        // Close modal on Escape key
+        $(document).on('keydown', function(e) {
+            if (e.key === 'Escape' && !$('#customDateModal').hasClass('hidden')) {
+                closeCustomDateModal();
+            }
+        });
     }
 
     function toggleSidebar() {
@@ -959,8 +1088,8 @@ $(document).ready(function() {
                 end = formatDate(today);
                 break;
             case 'custom':
-                console.log('Custom date range not implemented yet');
-                return;
+            openCustomDateModal();
+            return; // Don't fetch data yet, wait for user to apply
         }
         
         state.startDate = start;
@@ -1002,6 +1131,68 @@ $(document).ready(function() {
         });
     }
 
+    function openCustomDateModal() {
+    // Set default values to current date range
+    $('#customStartDate').val(state.startDate || formatDate(new Date()));
+    $('#customEndDate').val(state.endDate || formatDate(new Date()));
+    $('#customDateError').addClass('hidden').text('');
+    
+    // Show modal with animation
+    $('#customDateModal').removeClass('hidden').css('opacity', '0');
+    setTimeout(() => {
+        $('#customDateModal').css('opacity', '1');
+    }, 10);
+}
+
+function closeCustomDateModal() {
+    $('#customDateModal').css('opacity', '0');
+    setTimeout(() => {
+        $('#customDateModal').addClass('hidden');
+    }, 300);
+}
+
+function applyCustomDateRange() {
+    const startDate = $('#customStartDate').val();
+    const endDate = $('#customEndDate').val();
+    
+    // Validation
+    if (!startDate || !endDate) {
+        $('#customDateError').removeClass('hidden').text('Please select both start and end dates');
+        return;
+    }
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    if (start > end) {
+        $('#customDateError').removeClass('hidden').text('Start date must be before end date');
+        return;
+    }
+    
+    // Check if date range is too large (optional - e.g., max 365 days)
+    const daysDiff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    if (daysDiff > 365) {
+        $('#customDateError').removeClass('hidden').text('Date range cannot exceed 365 days');
+        return;
+    }
+    
+    // Apply the date range
+    state.dateRangePreset = 'custom';
+    state.startDate = startDate;
+    state.endDate = endDate;
+    
+    // Update UI
+    $('.date-btn').removeClass('active');
+    $('.date-btn[data-range="custom"]').addClass('active');
+    updateDateRangeText();
+    
+    // Close modal
+    closeCustomDateModal();
+    
+    // Fetch new data
+    fetchData();
+}
+
     function fetchData(forceRefresh = false) {
         if (state.isLoading) return;
         
@@ -1028,6 +1219,7 @@ $(document).ready(function() {
                 
                 state.dashboardData = response;
                 
+                state.litifyLeads = response.litify_leads || [];
                 // Filter litify leads to only show those created in period
                 // Use the count_for_leads flag from backend
                 state.litifyLeads = (response.litify_leads || []).filter(lead => {
@@ -1332,7 +1524,7 @@ $(document).ready(function() {
             </div>
             <div class="metric-card">
                 <div class="metric-label">Conv Rate</div>
-                <div class="metric-value">${formatPercentage(convRate)}</div>
+                <div class="metric-value">${formatPercentage(totals.cases/totals.leads)}</div>
             </div>
         `;
         $('#summaryCards').html(cards);
@@ -1516,7 +1708,7 @@ $(document).ready(function() {
             const totalCPL = totalRow.leads > 0 ? totalRow.spend / totalRow.leads : 0;
             const totalCPA = totalRow.cases > 0 ? totalRow.spend / totalRow.cases : 0;
             const totalCPR = totalRow.retainers > 0 ? totalRow.spend / totalRow.retainers : 0;
-            const totalConv = totalRow.inPractice > 0 ? totalRow.retainers / totalRow.inPractice : 0;
+            const totalConv = totalRow.cases > 0 ? totalRow.cases / totalRow.leads : 0;
             const totalInPracticePct = totalRow.leads > 0 ? totalRow.inPractice / totalRow.leads : 0;
             const totalUnqualifiedPct = totalRow.inPractice > 0 ? totalRow.unqualified / totalRow.inPractice : 0;
             

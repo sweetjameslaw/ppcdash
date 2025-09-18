@@ -1360,9 +1360,9 @@
             
             <div class="metric-card ${convRate < 20 ? 'warning-metric' : ''}">
                 <div class="metric-label">Conv Rate</div>
-                <div class="metric-value">${formatPercent(convRate / 100)}</div>
+                <div class="metric-value">${formatPercent(totals.cases/totals.leads)}</div>
                 <div class="metric-change text-gray-500 text-xs">
-                    ${totals.retainers > 0 ? totals.retainers + ' retainers' : ''}
+                    ${totals.cases > 0 ? totals.cases + ' cases' : ''}
                 </div>
             </div>
         `;
@@ -1468,8 +1468,7 @@
         result.cpl = result.leads > 0 ? result.spend / result.leads : 0;
         result.cpa = result.cases > 0 ? result.spend / result.cases : 0;
         result.cpr = result.retainers > 0 ? result.spend / result.retainers : 0;
-        // CRITICAL CHANGE: Conversion rate is now retainers / inPractice, not retainers / leads
-        result.convRate = result.inPractice > 0 ? (result.retainers / result.inPractice) : 0;
+        result.convRate = result.leads > 0 ? (result.cases / result.leads) : 0;
         
         return result;
     }
@@ -1675,7 +1674,7 @@
         const avgCpl = columnTotals.leads > 0 ? columnTotals.spend / columnTotals.leads : 0;
         const avgCpa = columnTotals.cases > 0 ? columnTotals.spend / columnTotals.cases : 0;
         const avgCpr = columnTotals.retainers > 0 ? columnTotals.spend / columnTotals.retainers : 0;
-        const convRate = columnTotals.inPractice > 0 ? (columnTotals.retainers / columnTotals.inPractice) : 0;
+        const convRate = columnTotals.leads > 0 ? (columnTotals.cases / columnTotals.leads) : 0;
         const inPracticePct = columnTotals.leads > 0 ? (columnTotals.inPractice / columnTotals.leads) : 0;
         const unqualifiedPct = columnTotals.leads > 0 ? (columnTotals.unqualified / columnTotals.leads) : 0;
         
