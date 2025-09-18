@@ -1,0 +1,63 @@
+{
+  "Arizona Brand": [
+    "AZ-EN-Brand",
+    "GS_Brand - AZ"
+  ],
+  "Arizona LSA": [
+    "LocalServicesCampaign:SystemGenerated:0005d4ed423a5b7b"
+  ],
+  "Arizona Prospecting": [
+    "AZ-PX-Pmax-EN-MVA",
+    "AZ-Pmax-EN-MVA",
+    "GS_NonBrand - AZ",
+    "PMAX_AZ"
+  ],
+  "California Brand": [
+    "CA-EN-Brand"
+  ],
+  "California LSA": [
+    "LocalServicesCampaign:SystemGenerated:0005d4f7245ee23e",
+    "LocalServicesCampaign:SystemGenerated:0006052bb31f123b",
+    "LocalServicesCampaign:SystemGenerated:00063a39a1a7c234",
+    "LocalServicesCampaign:SystemGenerated:0006114d7a00b474"
+  ],
+  "California Prospecting": [
+    "CA-Pmax-EN-MVA",
+    "CA-SC-Pmax-EN-MVA",
+    "CA-SC-Pmax-ES-MVA",
+    "CA-SF-Pmax-EN-MVA",
+    "GS_NonBrand - CA",
+    "SC-S-EN-MVA Manual w/ ECPC"
+  ],
+  "Crisp/Youtube": [
+    "Updated (Crisp) - Bay Area Conversions",
+    "Updated (Crisp) - Atlanta Conversions"
+  ],
+  "GMB": [],
+  "Georgia Brand": [
+    "GA-EN-Brand",
+    "GS_Brand - GA",
+    "GS_Brand - GA - ATLPI"
+  ],
+  "Georgia LSA": [
+    "LocalServicesCampaign:SystemGenerated:0005d4ef00ed9a77",
+    "LocalServicesCampaign:SystemGenerated:0005d4fe17585d4f"
+  ],
+  "Georgia Prospecting": [
+    "GA-AT-Pmax-EN-MVA",
+    "GS_NonBrand - GA",
+    "GS_NonBrand - GA - ATLPI",
+    "PMAX_GA"
+  ],
+  "News Article": [],
+  "OTT": [],
+  "Organic": [],
+  "Paid Social": [],
+  "Texas Brand": [
+    "TX-EN-Brand"
+  ],
+  "Texas LSA": [
+    "LocalServicesCampaign:SystemGenerated:00062cf336428740"
+  ],
+  "Yelp": []
+}

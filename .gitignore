@@ -10,8 +10,6 @@ venv/
 *.log
 .DS_Store
 google-ads.yaml
-campaign_mappings.json
-utm_mappings.json
 forecast_settings.json
 old_tests/
 sj-data-dash-modularized/
