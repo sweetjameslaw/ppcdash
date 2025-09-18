@@ -2,23 +2,27 @@
 """
 Sweet James Dashboard - Backend with Proper Campaign/Litify Integration and Forecasting
 Updated: Refactored to use demo_data module for all demo/test data
+TIMEZONE UPDATE: All queries now use Pacific Time (PT) for date ranges
 """
 
 import os
 import json
 import logging
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, time
 from flask import Flask, render_template, jsonify, request, send_from_directory
 from flask_cors import CORS
 from dotenv import load_dotenv
-import time
+import time as time_module
 from collections import defaultdict
 import calendar
 import random
 from urllib.parse import urlparse
+import pytz  # Added for timezone support
 import demo_data  # Import the demo data module
 from performance_boost import optimize_app, global_cache, daily_cache, time_it, parallel_fetch
 
+# Set Pacific Timezone
+PACIFIC_TZ = pytz.timezone('America/Los_Angeles')
 
 # Load environment variables
 load_dotenv()
@@ -53,6 +57,32 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'sweet-james-2025')
 CORS(app)
 
+# Helper function to get Pacific Time dates
+def get_pacific_date_range(start_date_str=None, end_date_str=None):
+    """
+    Convert date strings to Pacific Time with proper start/end times
+    Returns: (start_datetime_str, end_datetime_str) for API queries
+    """
+    if not start_date_str and not end_date_str:
+        # Default to today in Pacific Time
+        now_pt = datetime.now(PACIFIC_TZ)
+        start_date_str = now_pt.strftime('%Y-%m-%d')
+        end_date_str = start_date_str
+    elif not end_date_str:
+        end_date_str = datetime.now(PACIFIC_TZ).strftime('%Y-%m-%d')
+    elif not start_date_str:
+        start_date_str = end_date_str
+    
+    # Parse dates and set to Pacific Time
+    # Start of day: 00:00:00 PT
+    start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+    start_dt_pt = PACIFIC_TZ.localize(datetime.combine(start_date.date(), time.min))
+    
+    # End of day: 23:59:59 PT
+    end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+    end_dt_pt = PACIFIC_TZ.localize(datetime.combine(end_date.date(), time.max))
+    
+    return start_dt_pt, end_dt_pt
 
 # In-Practice Case Types
 IN_PRACTICE_CASE_TYPES = [
@@ -127,7 +157,7 @@ def load_campaign_mappings():
     else:
         # Use demo mappings as defaults
         CAMPAIGN_BUCKETS = demo_data.DEMO_CAMPAIGN_BUCKETS
-        logger.info("📊 Using default demo campaign mappings")
+        logger.info("📋 Using default demo campaign mappings")
 
 def save_mappings():
     """Save campaign bucket mappings to JSON file"""
@@ -158,7 +188,7 @@ def load_utm_mapping():
     else:
         # Use demo mappings as defaults
         UTM_TO_BUCKET_MAPPING = demo_data.DEMO_UTM_TO_BUCKET_MAPPING
-        logger.info("📊 Using default demo UTM mappings")
+        logger.info("📋 Using default demo UTM mappings")
 
 def save_utm_mapping():
     """Save UTM to bucket mapping to JSON file"""
@@ -227,7 +257,7 @@ def save_forecast_settings(settings):
     except Exception as e:
         logger.error(f"❌ Error saving forecast settings: {e}")
         return False
-
+    
 class GoogleAdsManager:
     """Enhanced Google Ads Manager with MCC and multi-account support"""
     
@@ -354,7 +384,7 @@ class GoogleAdsManager:
                             'level': row.customer_client.level
                         }
                         new_customer_ids.append(customer_id)
-                        logger.info(f"  📁 Found child account: {row.customer_client.descriptive_name} ({customer_id})")
+                        logger.info(f"  📂 Found child account: {row.customer_client.descriptive_name} ({customer_id})")
             
             # Add discovered accounts to our list
             for cid in new_customer_ids:
@@ -367,23 +397,25 @@ class GoogleAdsManager:
             logger.error(f"❌ Error discovering child accounts: {e}")
     
     def fetch_campaigns(self, start_date=None, end_date=None, active_only=True):
-        """Fetch campaign performance data from Google Ads - Enhanced with multi-account support"""
+        """Fetch campaign performance data from Google Ads with Pacific Time support"""
         if not self.client or not self.connected:
             return None
         
         all_campaigns = []
         
-        # Build date filter
-        date_filter = ""
-        if start_date and end_date:
-            date_filter = f"AND segments.date BETWEEN '{start_date}' AND '{end_date}'"
-        elif start_date:
-            date_filter = f"AND segments.date >= '{start_date}'"
-        elif end_date:
-            date_filter = f"AND segments.date <= '{end_date}'"
+        # Convert dates to Pacific Time
+        if start_date or end_date:
+            start_dt_pt, end_dt_pt = get_pacific_date_range(start_date, end_date)
+            # Google Ads expects YYYY-MM-DD format
+            start_date = start_dt_pt.strftime('%Y-%m-%d')
+            end_date = end_dt_pt.strftime('%Y-%m-%d')
         else:
-            today = datetime.now().strftime('%Y-%m-%d')
-            date_filter = f"AND segments.date = '{today}'"
+            # Default to today in Pacific Time
+            now_pt = datetime.now(PACIFIC_TZ)
+            start_date = end_date = now_pt.strftime('%Y-%m-%d')
+        
+        # Build date filter
+        date_filter = f"AND segments.date BETWEEN '{start_date}' AND '{end_date}'"
         
         # Build status filter
         status_filter = "AND campaign.status = 'ENABLED'" if active_only else ""
@@ -450,15 +482,15 @@ class GoogleAdsManager:
         return all_campaigns
     
     def fetch_month_to_date_spend(self):
-        """Fetch month-to-date spend by state"""
+        """Fetch month-to-date spend by state with Pacific Time"""
         if not self.client or not self.connected:
             return None
             
         try:
-            # Get current month date range
-            now = datetime.now()
-            start_date = date(now.year, now.month, 1).strftime('%Y-%m-%d')
-            end_date = now.strftime('%Y-%m-%d')
+            # Get current month date range in Pacific Time
+            now_pt = datetime.now(PACIFIC_TZ)
+            start_date = date(now_pt.year, now_pt.month, 1).strftime('%Y-%m-%d')
+            end_date = now_pt.strftime('%Y-%m-%d')
             
             # Fetch campaigns for current month (including all accounts)
             campaigns = self.fetch_campaigns(start_date, end_date, active_only=False)
@@ -498,6 +530,471 @@ class GoogleAdsManager:
             self.error = str(e)
             logger.error(f"❌ Error fetching MTD spend: {e}")
             return None
+
+
+class LitifyManager:
+    """Manages Litify/Salesforce connections and data fetching"""
+    
+    def __init__(self):
+        self.client = None
+        self.connected = False
+        self.error = None
+        self.instance_url = None
+        self.case_type_cache = set()
+        
+    def initialize(self):
+        """Initialize Salesforce/Litify connection"""
+        if not SALESFORCE_AVAILABLE:
+            self.error = "Salesforce library not installed"
+            return False
+            
+        try:
+            # Check for required credentials
+            username = os.getenv('LITIFY_USERNAME')
+            password = os.getenv('LITIFY_PASSWORD')
+            security_token = os.getenv('LITIFY_SECURITY_TOKEN')
+            
+            if not all([username, password, security_token]):
+                self.error = "Missing Litify credentials"
+                logger.warning(f"⚠️ {self.error}")
+                return False
+            
+            # Initialize Salesforce client
+            self.client = Salesforce(
+                username=username,
+                password=password,
+                security_token=security_token,
+                domain='login'  # Use 'test' for sandbox
+            )
+    
+            self.instance_url = self.client.base_url.replace('/services/data/v61.0', '')
+            
+            self.connected = True
+            self.error = None
+            
+            # Cache case types
+            self._cache_case_types()
+            
+            logger.info(f"✅ Litify API initialized successfully")
+            return True
+            
+        except Exception as e:
+            self.error = str(e)
+            self.connected = False
+            logger.error(f"❌ Failed to initialize Litify API: {e}")
+            return False
+    
+    def _cache_case_types(self):
+        """Cache available case types from Litify"""
+        if not self.client:
+            return
+            
+        try:
+            # Query for distinct case types
+            query = """
+                SELECT litify_pm__Case_Type__c 
+                FROM litify_pm__Intake__c 
+                WHERE litify_pm__Case_Type__c != null 
+                GROUP BY litify_pm__Case_Type__c
+            """
+            
+            result = self.client.query(query)
+            
+            for record in result['records']:
+                case_type = record.get('litify_pm__Case_Type__c')
+                if case_type:
+                    self.case_type_cache.add(case_type)
+            
+            logger.info(f"✅ Cached {len(self.case_type_cache)} case types from Litify")
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Could not cache case types: {e}")
+
+    def fetch_detailed_leads(self, start_date=None, end_date=None, limit=1000, 
+            include_spam=False, include_abandoned=False, include_duplicate=False,
+            force_refresh=False, count_by_conversion_date=True):
+        """Fetch detailed lead information from Litify with Pacific Time support"""
+        if not self.client or not self.connected:
+            return self.get_demo_litify_leads(include_spam, include_abandoned, include_duplicate)
+            
+        try:
+            # Convert dates to Pacific Time
+            start_dt_pt, end_dt_pt = get_pacific_date_range(start_date, end_date)
+            
+            # Litify uses different formats for DATE vs DATETIME fields
+            # For DATE fields (Retainer_Signed_Date__c): YYYY-MM-DD
+            # For DATETIME fields (CreatedDate): YYYY-MM-DDTHH:MM:SS.000Z (UTC)
+            
+            # Convert Pacific Time to UTC for DATETIME fields
+            start_dt_utc = start_dt_pt.astimezone(pytz.UTC)
+            end_dt_utc = end_dt_pt.astimezone(pytz.UTC)
+            
+            # Format for queries
+            date_format = start_dt_pt.strftime('%Y-%m-%d')  # For DATE fields
+            end_date_format = end_dt_pt.strftime('%Y-%m-%d')  # For DATE fields
+            datetime_start = start_dt_utc.strftime('%Y-%m-%dT%H:%M:%S.000Z')  # For DATETIME fields
+            datetime_end = end_dt_utc.strftime('%Y-%m-%dT%H:%M:%S.999Z')  # For DATETIME fields
+            
+            # Query 1: Leads CREATED in date range (for lead counts)
+            # CreatedDate is a DATETIME field, use UTC format
+            leads_query = f"""
+                SELECT Id, Name, CreatedDate, 
+                    litify_pm__Status__c,
+                    litify_pm__Display_Name__c,
+                    litify_pm__First_Name__c,
+                    litify_pm__Last_Name__c,
+                    Client_Name__c,
+                    litify_pm__Case_Type__c,
+                    litify_pm__Case_Type__r.Name,
+                    Retainer_Signed_Date__c,
+                    litify_pm__UTM_Campaign__c,
+                    litify_pm__Matter__c,
+                    litify_ext__Companion__c,
+                    isDroppedatIntake__c
+                FROM litify_pm__Intake__c
+                WHERE litify_pm__UTM_Campaign__c != null
+                AND CreatedDate >= {datetime_start}
+                AND CreatedDate <= {datetime_end}
+                ORDER BY CreatedDate DESC
+                LIMIT {limit}
+            """
+            
+            # Query 2: Leads CONVERTED in date range (for conversion metrics)
+            # Retainer_Signed_Date__c is a DATE field, use YYYY-MM-DD format
+            conversions_query = f"""
+                SELECT Id, Name, CreatedDate, 
+                    litify_pm__Status__c,
+                    litify_pm__Display_Name__c,
+                    litify_pm__First_Name__c,
+                    litify_pm__Last_Name__c,
+                    Client_Name__c,
+                    litify_pm__Case_Type__c,
+                    litify_pm__Case_Type__r.Name,
+                    Retainer_Signed_Date__c,
+                    litify_pm__UTM_Campaign__c,
+                    litify_pm__Matter__c,
+                    litify_ext__Companion__c,
+                    isDroppedatIntake__c
+                FROM litify_pm__Intake__c
+                WHERE litify_pm__UTM_Campaign__c != null
+                AND Retainer_Signed_Date__c != null
+                AND Retainer_Signed_Date__c >= {date_format}
+                AND Retainer_Signed_Date__c <= {end_date_format}
+                ORDER BY Retainer_Signed_Date__c DESC
+                LIMIT {limit}
+            """
+            
+            # Execute both queries
+            created_leads = {}
+            converted_leads = {}
+            
+            # Get leads created in period
+            logger.info(f"Fetching leads CREATED between {start_dt_pt} and {end_dt_pt} PT...")
+            result = self.client.query(leads_query)
+            for record in result['records']:
+                created_leads[record['Id']] = record
+            logger.info(f"   Found {len(created_leads)} leads created in period")
+            
+            # Get leads converted in period
+            logger.info(f"Fetching leads CONVERTED between {date_format} and {end_date_format} PT...")
+            result = self.client.query(conversions_query)
+            for record in result['records']:
+                converted_leads[record['Id']] = record
+            logger.info(f"   Found {len(converted_leads)} leads converted in period")
+            
+            # Merge the results intelligently
+            all_records_dict = created_leads.copy()
+            
+            # Add conversions that weren't created in this period
+            conversions_from_previous = 0
+            for lead_id, lead_data in converted_leads.items():
+                if lead_id not in all_records_dict:
+                    # Mark this as a conversion from a previous period
+                    lead_data['from_previous_period'] = True
+                    all_records_dict[lead_id] = lead_data
+                    conversions_from_previous += 1
+            
+            logger.info(f"   Including {conversions_from_previous} conversions from previous periods")
+            
+            all_records = list(all_records_dict.values())
+            
+            # Process leads
+            leads = []
+            utm_campaigns = set()
+            excluded_count = 0
+            
+            # Debug counters for California Brand
+            ca_brand_created = 0
+            ca_brand_conversions = 0
+            ca_brand_from_previous = 0
+            
+            for record in all_records:
+                # Get UTM Campaign
+                utm_campaign = record.get('litify_pm__UTM_Campaign__c', '')
+                if utm_campaign:
+                    utm_campaigns.add(utm_campaign)
+                
+                # Map UTM Campaign to bucket
+                bucket = UTM_TO_BUCKET_MAPPING.get(utm_campaign, '')
+                if not bucket and utm_campaign:
+                    utm_lower = utm_campaign.lower()
+                    for utm_key, bucket_name in UTM_TO_BUCKET_MAPPING.items():
+                        if utm_key.lower() == utm_lower:
+                            bucket = bucket_name
+                            break
+                
+                # Debug logging for California Brand
+                if bucket == 'California Brand':
+                    if record.get('from_previous_period', False):
+                        ca_brand_from_previous += 1
+                        logger.info(f"CA Brand - Previous Period Lead: {record.get('Id')[:8]}...")
+                    else:
+                        ca_brand_created += 1
+                        logger.info(f"CA Brand - Created Today: {record.get('Id')[:8]}...")
+                    
+                    if record.get('Retainer_Signed_Date__c'):
+                        ca_brand_conversions += 1
+                
+                # Get case type NAME from the relationship field
+                case_type = ''
+                if 'litify_pm__Case_Type__r' in record and record['litify_pm__Case_Type__r']:
+                    case_type = record['litify_pm__Case_Type__r'].get('Name', '')
+                
+                # Check if in practice
+                in_practice = False
+                if case_type and case_type in IN_PRACTICE_CASE_TYPES:
+                    in_practice = True
+                
+                # Check if it's an excluded type
+                is_excluded = case_type in EXCLUDED_CASE_TYPES
+                
+                # Track excluded counts
+                if is_excluded:
+                    excluded_count += 1
+                    # Skip if we should exclude this type
+                    if case_type == 'Spam' and not include_spam:
+                        continue
+                    elif case_type == 'Abandoned' and not include_abandoned:
+                        continue
+                    elif case_type == 'Duplicate' and not include_duplicate:
+                        continue
+                
+                # Check for companion case
+                has_companion = bool(record.get('litify_ext__Companion__c'))
+                
+                # Determine conversion status
+                retainer_signed = record.get('Retainer_Signed_Date__c')
+                status = record.get('litify_pm__Status__c', '')
+                display_name = (record.get('litify_pm__Display_Name__c', '') or '').lower()
+                is_dropped = record.get('isDroppedatIntake__c', False)
+
+                # Status values that indicate a successful conversion
+                CONVERTED_STATUSES = ['Retained', 'Converted', 'Signed']
+
+                # Check if converted (signed retainer OR converted status, not DAI/Referred Out, not dropped, not test)
+                is_converted = (
+                    (retainer_signed is not None or status in CONVERTED_STATUSES) and 
+                    status not in ['Converted DAI', 'Referred Out'] and
+                    not is_dropped and
+                    display_name != 'test'
+                )
+                
+                # Check if pending (Retainer Sent status)
+                is_pending = status == 'Retainer Sent'
+                
+                # Extract instance name for correct Lightning URL
+                instance_url = self.client.base_url
+                if '.my.salesforce.com' in instance_url:
+                    instance_name = instance_url.split('//')[1].split('.')[0]
+                    salesforce_url = f"https://{instance_name}.lightning.force.com/lightning/r/litify_pm__Intake__c/{record.get('Id')}/view"
+                else:
+                    salesforce_url = f"https://sweetjames.lightning.force.com/lightning/r/litify_pm__Intake__c/{record.get('Id')}/view"
+                
+                # Determine if this lead should count for different metrics
+                from_previous_period = record.get('from_previous_period', False)
+                
+                # Format dates for display
+                created_date_raw = record.get('CreatedDate', '')
+                created_date_formatted = ''
+                if created_date_raw:
+                    try:
+                        # Salesforce returns ISO format, convert to Pacific Time
+                        created_dt = datetime.fromisoformat(created_date_raw.replace('Z', '+00:00'))
+                        created_dt_pt = created_dt.astimezone(PACIFIC_TZ)
+                        created_date_formatted = created_dt_pt.strftime('%Y-%m-%d %I:%M %p PT')
+                    except:
+                        created_date_formatted = created_date_raw
+                
+                # Check if converted today
+                converted_today = False
+                if retainer_signed and retainer_signed == date_format:
+                    converted_today = True
+                
+                lead_data = {
+                    'id': record.get('Id', ''),
+                    'salesforce_url': salesforce_url,
+                    'created_date': created_date_raw,  # Raw ISO format for sorting
+                    'created_date_formatted': created_date_formatted,  # Human readable with time
+                    'conversion_date': retainer_signed or '',  # YYYY-MM-DD format or empty
+                    'status': status or 'Unknown',
+                    'client_name': (
+                        record.get('litify_pm__Display_Name__c', '') or
+                        record.get('Client_Name__c', '') or
+                        f"{record.get('litify_pm__First_Name__c', '')} {record.get('litify_pm__Last_Name__c', '')}".strip() or
+                        record.get('Name', '') or
+                        'Unknown'
+                    ),
+                    'is_converted': is_converted,  
+                    'is_pending': is_pending,  
+                    'case_type': case_type or 'Not Set',
+                    'in_practice': in_practice,
+                    'utm_campaign': utm_campaign or '-',
+                    'bucket': bucket,
+                    'is_excluded_type': is_excluded,
+                    'has_companion': has_companion,
+                    'matter_id': record.get('litify_pm__Matter__c', '') or '',
+                    'companion_case_id': record.get('litify_ext__Companion__c', '') or '',
+                    'is_dropped': is_dropped,
+                    'retainer_signed_date': retainer_signed,
+                    'from_previous_period': from_previous_period,
+                    # Visual indicators for UI
+                    'is_new_today': not from_previous_period,  # Created today
+                    'converted_today': converted_today,  # Converted today
+                    # CRITICAL FLAGS FOR COUNTING
+                    'count_for_leads': not from_previous_period,  # Only count if created in this period
+                    'count_for_conversions': is_converted  # Count if converted (regardless of creation date)
+                }
+                
+                # Debug log for California Brand
+                if bucket == 'California Brand':
+                    logger.info(f"CA Brand Lead Data: ID={lead_data['id'][:8]}..., "
+                               f"count_for_leads={lead_data['count_for_leads']}, "
+                               f"is_converted={lead_data['is_converted']}, "
+                               f"in_practice={lead_data['in_practice']}, "
+                               f"from_previous={lead_data['from_previous_period']}")
+                
+                leads.append(lead_data)
+            
+            # Log California Brand summary
+            logger.info(f"CA Brand Summary: {ca_brand_created} created today, "
+                       f"{ca_brand_from_previous} from previous periods, "
+                       f"{ca_brand_conversions} total conversions")
+            
+            # Log summary of case types found
+            case_type_summary = {}
+            for lead in leads:
+                ct = lead['case_type']
+                if ct not in case_type_summary:
+                    case_type_summary[ct] = {'total': 0, 'in_practice': 0, 'converted': 0}
+                case_type_summary[ct]['total'] += 1
+                if lead['in_practice']:
+                    case_type_summary[ct]['in_practice'] += 1
+                if lead['is_converted']:
+                    case_type_summary[ct]['converted'] += 1
+            
+            logger.info(f"Fetched {len(leads)} detailed leads from Litify")
+            logger.info(f"   - {len([l for l in leads if l['count_for_leads']])} created in period")
+            logger.info(f"   - {len([l for l in leads if l['count_for_conversions']])} converted in period")
+            logger.info(f"   - {len([l for l in leads if l['from_previous_period']])} conversions from previous periods")
+            logger.info(f"   - {excluded_count} excluded type leads filtered")
+            logger.info(f"Case type breakdown: {case_type_summary}")
+            
+            return leads
+            
+        except Exception as e:
+            self.error = str(e)
+            logger.error(f"❌ Error fetching Litify leads: {e}")
+            return self.get_demo_litify_leads(include_spam, include_abandoned, include_duplicate)
+
+    def fetch_month_to_date_metrics(self, include_spam=False, include_abandoned=False, include_duplicate=False):
+        """Fetch month-to-date leads, cases, and retainers by state with Pacific Time"""
+        if not self.client or not self.connected:
+            return None
+            
+        try:
+            # Get current month date range in Pacific Time
+            now_pt = datetime.now(PACIFIC_TZ)
+            start_date = date(now_pt.year, now_pt.month, 1)
+            end_date = now_pt.date()
+            
+            # Fetch leads for current month
+            leads = self.fetch_detailed_leads(
+                start_date.strftime('%Y-%m-%d'),
+                end_date.strftime('%Y-%m-%d'),
+                limit=5000,  # Higher limit for monthly data
+                include_spam=include_spam,
+                include_abandoned=include_abandoned,
+                include_duplicate=include_duplicate
+            )
+            
+            if not leads:
+                return None
+            
+            # Initialize state metrics
+            state_metrics = {
+                "CA": {"leads": 0, "cases": 0, "retainers": 0},
+                "AZ": {"leads": 0, "cases": 0, "retainers": 0},
+                "GA": {"leads": 0, "cases": 0, "retainers": 0},
+                "TX": {"leads": 0, "cases": 0, "retainers": 0}
+            }
+            
+            # Use improved companion grouping for case counting
+            case_assignments = build_companion_groups(leads)
+            
+            # Group cases by state
+            cases_by_state = {
+                "CA": set(),
+                "AZ": set(),
+                "GA": set(),
+                "TX": set()
+            }
+            
+            for lead in leads:
+                # Determine state from bucket
+                bucket = lead.get('bucket', '')
+                state = get_state_from_campaign_bucket(bucket)
+                
+                if state and state in state_metrics:
+                    # Count leads
+                    state_metrics[state]["leads"] += 1
+                    
+                    # Count retainers (signed)
+                    if lead.get('is_converted', False):
+                        state_metrics[state]["retainers"] += 1
+                        
+                        # Track unique cases using improved grouping
+                        lead_id = lead.get('id', '')
+                        case_id = case_assignments.get(lead_id, f"unknown_{lead_id}")
+                        cases_by_state[state].add(case_id)
+            
+            # Convert case sets to counts
+            for state in state_metrics:
+                state_metrics[state]["cases"] = len(cases_by_state[state])
+            
+            logger.info(f"✅ Fetched MTD metrics by state: {state_metrics}")
+            return state_metrics
+            
+        except Exception as e:
+            self.error = str(e)
+            logger.error(f"❌ Error fetching MTD metrics: {e}")
+            return None
+    
+    def get_demo_litify_leads(self, include_spam=False, include_abandoned=False, include_duplicate=False):
+        """Return demo Litify leads data with bucket mapping and exclusion filters"""
+        return demo_data.get_demo_litify_leads(
+            UTM_TO_BUCKET_MAPPING, 
+            include_spam, 
+            include_abandoned, 
+            include_duplicate
+        )
+    # Initialize managers
+ads_manager = GoogleAdsManager()
+litify_manager = LitifyManager()
+optimize_app(app, ads_manager, litify_manager)
+
+def get_demo_data(include_spam=False, include_abandoned=False, include_duplicate=False):
+    """Wrapper function to maintain compatibility"""
+    return demo_data.get_demo_bucket_data(include_spam, include_abandoned, include_duplicate)
 
 def process_campaigns_to_buckets_with_litify(campaigns, litify_leads):
     """
@@ -581,26 +1078,34 @@ def process_campaigns_to_buckets_with_litify(campaigns, litify_leads):
                 continue
         
         if bucket_name in bucketed_data:
-            # Count leads
-            bucketed_data[bucket_name]['leads'] += 1
+            # CRITICAL: Check if lead was created in this period
+            # Don't use default True - be explicit
+            count_for_leads = lead.get('count_for_leads', False)
+            from_previous = lead.get('from_previous_period', False)
             
-            # Count in-practice leads
-            if lead.get('in_practice', False):
-                bucketed_data[bucket_name]['inPractice'] += 1
+            # Only count in leads/in-practice if EXPLICITLY marked as created in period
+            if count_for_leads and not from_previous:
+                # Count as a lead
+                bucketed_data[bucket_name]['leads'] += 1
                 
-                # Count converted retainers
-                if lead.get('is_converted', False):
-                    bucketed_data[bucket_name]['retainers'] += 1
+                # Count in-practice if applicable
+                if lead.get('in_practice', False):
+                    bucketed_data[bucket_name]['inPractice'] += 1
                     
-                    # Track unique case using the case_id from grouping
-                    lead_id = lead.get('id', '')
-                    case_id = case_assignments.get(lead_id, f"unknown_{lead_id}")
-                    cases_by_bucket[bucket_name].add(case_id)
-                else:
-                    # In practice but not converted = unqualified
-                    bucketed_data[bucket_name]['unqualified'] += 1
+                    # Count unqualified (in-practice but not converted)
+                    if not lead.get('is_converted', False):
+                        bucketed_data[bucket_name]['unqualified'] += 1
             
-            # Count pending retainers separately
+            # SEPARATELY: Count ALL conversions regardless of creation date
+            if lead.get('is_converted', False):
+                bucketed_data[bucket_name]['retainers'] += 1
+                
+                # Track unique case
+                lead_id = lead.get('id', '')
+                case_id = case_assignments.get(lead_id, f"unknown_{lead_id}")
+                cases_by_bucket[bucket_name].add(case_id)
+            
+            # Count pending retainers
             if lead.get('is_pending', False):
                 bucketed_data[bucket_name]['pendingRetainers'] += 1
     
@@ -614,26 +1119,31 @@ def process_campaigns_to_buckets_with_litify(campaigns, litify_leads):
         data['totalRetainers'] = data['retainers'] + data['pendingRetainers']
         
         # Calculate percentages
-        if data['inPractice'] > 0:
-            data['inPracticePercent'] = round(data['inPractice'] / data['leads'], 3) if data['leads'] > 0 else 0
-            data['unqualifiedPercent'] = round(data['unqualified'] / data['inPractice'], 3)
-            data['conversionRate'] = round(data['retainers'] / data['inPractice'], 3)
+        if data['leads'] > 0:
+            data['inPracticePercent'] = round(data['inPractice'] / data['leads'], 3)
+            data['costPerLead'] = round(data['cost'] / data['leads'], 2)
+            data['conversionRate'] = round(data['retainers'] / data['leads'], 3)
         else:
             data['inPracticePercent'] = 0
-            data['unqualifiedPercent'] = 0
+            data['costPerLead'] = 0
             data['conversionRate'] = 0
-        
-        # Calculate cost metrics
-        if data['leads'] > 0:
-            data['costPerLead'] = round(data['cost'] / data['leads'], 2)
+            
+        if data['inPractice'] > 0:
+            data['unqualifiedPercent'] = round(data['unqualified'] / data['inPractice'], 3)
+        else:
+            data['unqualifiedPercent'] = 0
         
         # Cost per case based on unique cases
         if data['cases'] > 0:
             data['cpa'] = round(data['cost'] / data['cases'], 2)
+        else:
+            data['cpa'] = 0
         
         # Cost per retainer based on signed retainers only
         if data['retainers'] > 0:
             data['costPerRetainer'] = round(data['cost'] / data['retainers'], 2)
+        else:
+            data['costPerRetainer'] = 0
     
     # Log summary for debugging
     total_leads = sum(b['leads'] for b in bucketed_data.values())
@@ -654,7 +1164,7 @@ def process_campaigns_to_buckets_with_litify(campaigns, litify_leads):
                 f"{total_retainers} signed retainers, {total_pending} pending retainers")
     
     if lsa_count > 0:
-        logger.info(f"📍 LSA Campaigns: {lsa_count} campaigns, ${lsa_spend:,.2f} spend")
+        logger.info(f"🔍 LSA Campaigns: {lsa_count} campaigns, ${lsa_spend:,.2f} spend")
     
     logger.info(f"💰 Total Spend: ${total_cost:,.2f}")
     
@@ -758,638 +1268,6 @@ def build_companion_groups(leads):
     
     return case_assignments
 
-class LitifyManager:
-    """Manages Litify/Salesforce connections and data fetching"""
-    
-    def __init__(self):
-        self.client = None
-        self.connected = False
-        self.error = None
-        self.instance_url = None
-        self.case_type_cache = set()
-        
-    def initialize(self):
-        """Initialize Salesforce/Litify connection"""
-        if not SALESFORCE_AVAILABLE:
-            self.error = "Salesforce library not installed"
-            return False
-            
-        try:
-            # Check for required credentials
-            username = os.getenv('LITIFY_USERNAME')
-            password = os.getenv('LITIFY_PASSWORD')
-            security_token = os.getenv('LITIFY_SECURITY_TOKEN')
-            
-            if not all([username, password, security_token]):
-                self.error = "Missing Litify credentials"
-                logger.warning(f"⚠️ {self.error}")
-                return False
-            
-            # Initialize Salesforce client
-            self.client = Salesforce(
-                username=username,
-                password=password,
-                security_token=security_token,
-                domain='login'  # Use 'test' for sandbox
-            )
-    
-            self.instance_url = self.client.base_url.replace('/services/data/v61.0', '')
-            
-            self.connected = True
-            self.error = None
-            
-            # Cache case types
-            self._cache_case_types()
-            
-            logger.info(f"✅ Litify API initialized successfully")
-            return True
-            
-        except Exception as e:
-            self.error = str(e)
-            self.connected = False
-            logger.error(f"❌ Failed to initialize Litify API: {e}")
-            return False
-    
-    def _cache_case_types(self):
-        """Cache available case types from Litify"""
-        if not self.client:
-            return
-            
-        try:
-            # Query for distinct case types
-            query = """
-                SELECT litify_pm__Case_Type__c 
-                FROM litify_pm__Intake__c 
-                WHERE litify_pm__Case_Type__c != null 
-                GROUP BY litify_pm__Case_Type__c
-            """
-            
-            result = self.client.query(query)
-            
-            for record in result['records']:
-                case_type = record.get('litify_pm__Case_Type__c')
-                if case_type:
-                    self.case_type_cache.add(case_type)
-            
-            logger.info(f"✅ Cached {len(self.case_type_cache)} case types from Litify")
-            
-        except Exception as e:
-            logger.warning(f"⚠️ Could not cache case types: {e}")
-
-    def fetch_detailed_leads(self, start_date=None, end_date=None, limit=1000, 
-                    include_spam=False, include_abandoned=False, include_duplicate=False,
-                    force_refresh=False, count_by_conversion_date=True):
-        """Fetch detailed lead information from Litify with exclusion filters and conversion date support"""
-        if not self.client or not self.connected:
-            return self.get_demo_litify_leads(include_spam, include_abandoned, include_duplicate)
-            
-        try:
-            # TWO QUERIES APPROACH for complete picture:
-            # 1. Get ALL leads created in date range (for lead counts)
-            # 2. Get ALL conversions in date range (for retainer/case counts)
-            
-            # Set default dates if not provided
-            if not start_date and not end_date:
-                today = datetime.now().strftime('%Y-%m-%d')
-                start_date = today
-                end_date = today
-            elif not end_date:
-                end_date = datetime.now().strftime('%Y-%m-%d')
-            elif not start_date:
-                start_date = end_date
-            
-            # Query 1: Leads CREATED in date range (for lead metrics)
-            # CreatedDate is a DATETIME field, so use T00:00:00Z format
-            leads_query = f"""
-                SELECT Id, Name, CreatedDate, 
-                    litify_pm__Status__c,
-                    litify_pm__Display_Name__c,
-                    litify_pm__First_Name__c,
-                    litify_pm__Last_Name__c,
-                    Client_Name__c,
-                    litify_pm__Case_Type__c,
-                    litify_pm__Case_Type__r.Name,
-                    Retainer_Signed_Date__c,
-                    litify_pm__UTM_Campaign__c,
-                    litify_pm__Matter__c,
-                    litify_ext__Companion__c,
-                    isDroppedatIntake__c
-                FROM litify_pm__Intake__c
-                WHERE litify_pm__UTM_Campaign__c != null
-                AND CreatedDate >= {start_date}T00:00:00Z 
-                AND CreatedDate <= {end_date}T23:59:59Z
-                ORDER BY CreatedDate DESC
-                LIMIT {limit}
-            """
-            
-            # Query 2: Leads CONVERTED in date range (for conversion metrics)
-            # FIX: Retainer_Signed_Date__c is a DATE field, not DATETIME - use YYYY-MM-DD format
-            conversions_query = f"""
-                SELECT Id, Name, CreatedDate, 
-                    litify_pm__Status__c,
-                    litify_pm__Display_Name__c,
-                    litify_pm__First_Name__c,
-                    litify_pm__Last_Name__c,
-                    Client_Name__c,
-                    litify_pm__Case_Type__c,
-                    litify_pm__Case_Type__r.Name,
-                    Retainer_Signed_Date__c,
-                    litify_pm__UTM_Campaign__c,
-                    litify_pm__Matter__c,
-                    litify_ext__Companion__c,
-                    isDroppedatIntake__c
-                FROM litify_pm__Intake__c
-                WHERE litify_pm__UTM_Campaign__c != null
-                AND Retainer_Signed_Date__c != null
-                AND Retainer_Signed_Date__c >= {start_date}
-                AND Retainer_Signed_Date__c <= {end_date}
-                ORDER BY Retainer_Signed_Date__c DESC
-                LIMIT {limit}
-            """
-            
-            # Execute both queries
-            created_leads = {}
-            converted_leads = {}
-            
-            # Get leads created in period
-            logger.info(f"Fetching leads CREATED between {start_date} and {end_date}...")
-            result = self.client.query(leads_query)
-            for record in result['records']:
-                created_leads[record['Id']] = record
-            logger.info(f"   Found {len(created_leads)} leads created in period")
-            
-            # Get leads converted in period
-            logger.info(f"Fetching leads CONVERTED between {start_date} and {end_date}...")
-            result = self.client.query(conversions_query)
-            for record in result['records']:
-                converted_leads[record['Id']] = record
-            logger.info(f"   Found {len(converted_leads)} leads converted in period")
-            
-            # Merge the results intelligently
-            all_records_dict = created_leads.copy()
-            
-            # Add conversions that weren't created in this period
-            conversions_from_previous = 0
-            for lead_id, lead_data in converted_leads.items():
-                if lead_id not in all_records_dict:
-                    # Mark this as a conversion from a previous period
-                    lead_data['from_previous_period'] = True
-                    all_records_dict[lead_id] = lead_data
-                    conversions_from_previous += 1
-            
-            logger.info(f"   Including {conversions_from_previous} conversions from previous periods")
-            
-            all_records = list(all_records_dict.values())
-            
-            # Process leads
-            leads = []
-            utm_campaigns = set()
-            excluded_count = 0
-            
-            for record in all_records:
-                # Get UTM Campaign
-                utm_campaign = record.get('litify_pm__UTM_Campaign__c', '')
-                if utm_campaign:
-                    utm_campaigns.add(utm_campaign)
-                
-                # Get case type NAME from the relationship field
-                case_type = ''
-                if 'litify_pm__Case_Type__r' in record and record['litify_pm__Case_Type__r']:
-                    case_type = record['litify_pm__Case_Type__r'].get('Name', '')
-                
-                # Check if in practice
-                in_practice = False
-                if case_type and case_type in IN_PRACTICE_CASE_TYPES:
-                    in_practice = True
-                
-                # Check if it's an excluded type
-                is_excluded = case_type in EXCLUDED_CASE_TYPES
-                
-                # Track excluded counts
-                if is_excluded:
-                    excluded_count += 1
-                    # Skip if we should exclude this type
-                    if case_type == 'Spam' and not include_spam:
-                        continue
-                    elif case_type == 'Abandoned' and not include_abandoned:
-                        continue
-                    elif case_type == 'Duplicate' and not include_duplicate:
-                        continue
-                
-                # Log for debugging if case type is empty or not in practice
-                if not case_type:
-                    logger.debug(f"Lead {record.get('Id')} has no case type")
-                elif not in_practice and case_type not in EXCLUDED_CASE_TYPES:
-                    logger.debug(f"Lead {record.get('Id')} has case type '{case_type}' which is not in IN_PRACTICE list")
-                
-                # Check for companion case
-                has_companion = bool(record.get('litify_ext__Companion__c'))
-                
-                # Determine conversion status
-                retainer_signed = record.get('Retainer_Signed_Date__c')
-                status = record.get('litify_pm__Status__c', '')
-                display_name = (record.get('litify_pm__Display_Name__c', '') or '').lower()
-                is_dropped = record.get('isDroppedatIntake__c', False)
-
-                # Status values that indicate a successful conversion
-                CONVERTED_STATUSES = ['Retained', 'Converted', 'Signed']
-
-                # Check if converted (signed retainer OR converted status, not DAI/Referred Out, not dropped, not test)
-                is_converted = (
-                    (retainer_signed is not None or status in CONVERTED_STATUSES) and 
-                    status not in ['Converted DAI', 'Referred Out'] and
-                    not is_dropped and
-                    display_name != 'test'
-                )
-                
-                if status in CONVERTED_STATUSES or retainer_signed is not None:
-                    logger.debug(f"Lead {record.get('Id')} - Status: {status}, Signed: {retainer_signed is not None}, "
-                    f"Converted: {is_converted}, Case Type: {case_type}, In Practice: {in_practice}, "
-                    f"UTM: {utm_campaign}"
-                )
-                
-                # Check if pending (Retainer Sent status)
-                is_pending = status == 'Retainer Sent'
-                
-                # Map UTM Campaign to bucket
-                bucket = UTM_TO_BUCKET_MAPPING.get(utm_campaign, '')
-                if not bucket and utm_campaign:
-                    utm_lower = utm_campaign.lower()
-                    for utm_key, bucket_name in UTM_TO_BUCKET_MAPPING.items():
-                        if utm_key.lower() == utm_lower:
-                            bucket = bucket_name
-                            break
-                
-                # Extract instance name for correct Lightning URL
-                instance_url = self.client.base_url
-                if '.my.salesforce.com' in instance_url:
-                    instance_name = instance_url.split('//')[1].split('.')[0]
-                    salesforce_url = f"https://{instance_name}.lightning.force.com/lightning/r/litify_pm__Intake__c/{record.get('Id')}/view"
-                else:
-                    salesforce_url = f"https://sweetjames.lightning.force.com/lightning/r/litify_pm__Intake__c/{record.get('Id')}/view"
-                
-                # Determine if this lead should count for different metrics
-                from_previous_period = record.get('from_previous_period', False)
-                
-                lead_data = {
-                    'id': record.get('Id', ''),
-                    'salesforce_url': salesforce_url,
-                    'created_date': record.get('CreatedDate', ''),
-                    'status': status or 'Unknown',
-                    'client_name': (
-                        record.get('litify_pm__Display_Name__c', '') or
-                        record.get('Client_Name__c', '') or
-                        f"{record.get('litify_pm__First_Name__c', '')} {record.get('litify_pm__Last_Name__c', '')}".strip() or
-                        record.get('Name', '') or
-                        'Unknown'
-                    ),
-                    'is_converted': is_converted,  
-                    'is_pending': is_pending,  
-                    'case_type': case_type or 'Not Set',
-                    'in_practice': in_practice,
-                    'utm_campaign': utm_campaign or '-',
-                    'bucket': bucket,
-                    'is_excluded_type': is_excluded,
-                    'has_companion': has_companion,
-                    'matter_id': record.get('litify_pm__Matter__c', '') or '',
-                    'companion_case_id': record.get('litify_ext__Companion__c', '') or '',
-                    'is_dropped': is_dropped,
-                    'retainer_signed_date': retainer_signed,
-                    'from_previous_period': from_previous_period,
-                    # Add flags for counting
-                    'count_for_leads': not from_previous_period,  # Only count if created in this period
-                    'count_for_conversions': is_converted  # Count if converted (regardless of creation date)
-                }
-                
-                leads.append(lead_data)
-            
-            # Log summary of case types found
-            case_type_summary = {}
-            for lead in leads:
-                ct = lead['case_type']
-                if ct not in case_type_summary:
-                    case_type_summary[ct] = {'total': 0, 'in_practice': 0, 'converted': 0}
-                case_type_summary[ct]['total'] += 1
-                if lead['in_practice']:
-                    case_type_summary[ct]['in_practice'] += 1
-                if lead['is_converted']:
-                    case_type_summary[ct]['converted'] += 1
-            
-            logger.info(f"✅ Fetched {len(leads)} detailed leads from Litify")
-            logger.info(f"   - {len([l for l in leads if l['count_for_leads']])} created in period")
-            logger.info(f"   - {len([l for l in leads if l['count_for_conversions']])} converted in period")
-            logger.info(f"   - {len([l for l in leads if l['from_previous_period']])} conversions from previous periods")
-            logger.info(f"   - {excluded_count} excluded type leads filtered")
-            logger.info(f"📊 Case type breakdown: {case_type_summary}")
-            
-            return leads
-            
-        except Exception as e:
-            self.error = str(e)
-            logger.error(f"❌ Error fetching Litify leads: {e}")
-            return self.get_demo_litify_leads(include_spam, include_abandoned, include_duplicate)
-
-    def fetch_month_to_date_metrics(self, include_spam=False, include_abandoned=False, include_duplicate=False):
-        """Fetch month-to-date leads, cases, and retainers by state"""
-        if not self.client or not self.connected:
-            return None
-            
-        try:
-            # Get current month date range
-            now = datetime.now()
-            start_date = date(now.year, now.month, 1)
-            end_date = now.date()
-            
-            # Fetch leads for current month
-            leads = self.fetch_detailed_leads(
-                start_date.strftime('%Y-%m-%d'),
-                end_date.strftime('%Y-%m-%d'),
-                limit=5000,  # Higher limit for monthly data
-                include_spam=include_spam,
-                include_abandoned=include_abandoned,
-                include_duplicate=include_duplicate
-            )
-            
-            if not leads:
-                return None
-            
-            # Initialize state metrics
-            state_metrics = {
-                "CA": {"leads": 0, "cases": 0, "retainers": 0},
-                "AZ": {"leads": 0, "cases": 0, "retainers": 0},
-                "GA": {"leads": 0, "cases": 0, "retainers": 0},
-                "TX": {"leads": 0, "cases": 0, "retainers": 0}
-            }
-            
-            # Use improved companion grouping for case counting
-            case_assignments = build_companion_groups(leads)
-            
-            # Group cases by state
-            cases_by_state = {
-                "CA": set(),
-                "AZ": set(),
-                "GA": set(),
-                "TX": set()
-            }
-            
-            for lead in leads:
-                # Determine state from bucket
-                bucket = lead.get('bucket', '')
-                state = get_state_from_campaign_bucket(bucket)
-                
-                if state and state in state_metrics:
-                    # Count leads
-                    state_metrics[state]["leads"] += 1
-                    
-                    # Count retainers (signed)
-                    if lead.get('is_converted', False):
-                        state_metrics[state]["retainers"] += 1
-                        
-                        # Track unique cases using improved grouping
-                        lead_id = lead.get('id', '')
-                        case_id = case_assignments.get(lead_id, f"unknown_{lead_id}")
-                        cases_by_state[state].add(case_id)
-            
-            # Convert case sets to counts
-            for state in state_metrics:
-                state_metrics[state]["cases"] = len(cases_by_state[state])
-            
-            logger.info(f"✅ Fetched MTD metrics by state: {state_metrics}")
-            return state_metrics
-            
-        except Exception as e:
-            self.error = str(e)
-            logger.error(f"❌ Error fetching MTD metrics: {e}")
-            return None
-    
-    def get_demo_litify_leads(self, include_spam=False, include_abandoned=False, include_duplicate=False):
-        """Return demo Litify leads data with bucket mapping and exclusion filters"""
-        return demo_data.get_demo_litify_leads(
-            UTM_TO_BUCKET_MAPPING, 
-            include_spam, 
-            include_abandoned, 
-            include_duplicate
-        )
-
-# Initialize managers
-ads_manager = GoogleAdsManager()
-litify_manager = LitifyManager()
-optimize_app(app, ads_manager, litify_manager)
-
-def get_demo_data(include_spam=False, include_abandoned=False, include_duplicate=False):
-    """Wrapper function to maintain compatibility"""
-    return demo_data.get_demo_bucket_data(include_spam, include_abandoned, include_duplicate)
-
-def process_campaigns_to_buckets_with_litify(campaigns, litify_leads):
-    """
-    Process Google Ads campaigns and Litify leads to create bucketed data with improved companion case grouping
-    Enhanced with LSA campaign detection using customer IDs
-    """
-    # LSA Account to State Mapping (based on discovery)
-    LSA_ACCOUNT_STATE_MAP = {
-        '2419159990': 'Arizona LSA',      # Google - Sweet James (Arizona)
-        '8734393866': 'Georgia LSA',      # LSA - Atlanta
-        '2065821782': 'California LSA',   # LSA - Los Angeles
-        '1130290121': 'California LSA',   # LSA - Newport
-        '9598631966': 'Georgia LSA',      # LSA - Roswell
-        '1867060368': 'California LSA',   # Sweet James Accident Attorneys
-    }
-    
-    # Initialize buckets
-    bucketed_data = {bucket: {
-        'name': bucket,
-        'state': get_state_from_campaign_bucket(bucket) or 'Unknown',
-        'campaigns': [],
-        'cost': 0,
-        'leads': 0,
-        'inPractice': 0,
-        'unqualified': 0,
-        'cases': 0,
-        'retainers': 0,
-        'pendingRetainers': 0,
-        'totalRetainers': 0
-    } for bucket in BUCKET_PRIORITY}
-    
-    unmapped_campaigns = []
-    unmapped_utm_campaigns = set()
-    excluded_counts = {'spam': 0, 'abandoned': 0, 'duplicate': 0, 'total': 0}
-    
-    # Process Google Ads campaigns
-    if campaigns:
-        for campaign in campaigns:
-            campaign_name = campaign.get('name', 'Unknown')
-            customer_id = campaign.get('customer_id', '')
-            cost = campaign.get('cost', 0)
-            is_lsa = campaign.get('is_lsa', False) or 'LocalServicesCampaign' in campaign_name
-            
-            bucket_found = False
-            
-            # Special handling for LSA campaigns
-            if is_lsa:
-                # Try to map LSA campaign using customer ID
-                if customer_id in LSA_ACCOUNT_STATE_MAP:
-                    bucket_name = LSA_ACCOUNT_STATE_MAP[customer_id]
-                    if bucket_name in bucketed_data:
-                        bucketed_data[bucket_name]['campaigns'].append(campaign_name)
-                        bucketed_data[bucket_name]['cost'] += cost
-                        bucket_found = True
-                        logger.info(f"✅ Mapped LSA campaign from account {customer_id} to {bucket_name}")
-                else:
-                    # Try to determine state from campaign or customer name
-                    customer_name = campaign.get('customer_name', '')
-                    
-                    # Check customer name for location hints
-                    if any(x in customer_name.lower() for x in ['los angeles', 'la ', 'newport', 'california']):
-                        bucket_name = 'California LSA'
-                    elif any(x in customer_name.lower() for x in ['atlanta', 'roswell', 'georgia']):
-                        bucket_name = 'Georgia LSA'
-                    elif any(x in customer_name.lower() for x in ['phoenix', 'arizona']):
-                        bucket_name = 'Arizona LSA'
-                    elif any(x in customer_name.lower() for x in ['houston', 'dallas', 'texas']):
-                        bucket_name = 'Texas LSA'
-                    else:
-                        bucket_name = None
-                    
-                    if bucket_name and bucket_name in bucketed_data:
-                        bucketed_data[bucket_name]['campaigns'].append(campaign_name)
-                        bucketed_data[bucket_name]['cost'] += cost
-                        bucket_found = True
-                        logger.info(f"✅ Mapped LSA campaign '{campaign_name}' to {bucket_name} based on customer name")
-            
-            # If not LSA or LSA not mapped, try regular campaign bucket mapping
-            if not bucket_found:
-                for bucket_name, bucket_campaigns in CAMPAIGN_BUCKETS.items():
-                    if campaign_name in bucket_campaigns:
-                        if bucket_name in bucketed_data:
-                            bucketed_data[bucket_name]['campaigns'].append(campaign_name)
-                            bucketed_data[bucket_name]['cost'] += cost
-                            bucket_found = True
-                            break
-            
-            # If still not found, add to unmapped
-            if not bucket_found:
-                unmapped_campaigns.append(campaign_name)
-                if is_lsa:
-                    logger.warning(f"⚠️ Unmapped LSA campaign: {campaign_name} (Customer ID: {customer_id})")
-                else:
-                    logger.warning(f"⚠️ Unmapped campaign: {campaign_name}")
-    
-    # Track excluded lead counts by type
-    for lead in litify_leads:
-        case_type = lead.get('case_type', '')
-        if case_type == 'Spam':
-            excluded_counts['spam'] += 1
-            excluded_counts['total'] += 1
-        elif case_type == 'Abandoned':
-            excluded_counts['abandoned'] += 1
-            excluded_counts['total'] += 1
-        elif case_type == 'Duplicate':
-            excluded_counts['duplicate'] += 1
-            excluded_counts['total'] += 1
-    
-    # Build companion groups for case counting
-    case_assignments = build_companion_groups(litify_leads)
-    
-    # Track unique cases per bucket (using case_id from grouping)
-    cases_by_bucket = defaultdict(set)
-    
-    # Process Litify leads
-    for lead in litify_leads:
-        bucket_name = lead.get('bucket', '')
-        
-        # If no bucket mapping, try to map based on UTM campaign
-        if not bucket_name:
-            utm = lead.get('utm_campaign', '')
-            if utm and utm not in ['-', '']:
-                unmapped_utm_campaigns.add(utm)
-                continue
-        
-        if bucket_name in bucketed_data:
-            # Count leads
-            bucketed_data[bucket_name]['leads'] += 1
-            
-            # Count in-practice leads
-            if lead.get('in_practice', False):
-                bucketed_data[bucket_name]['inPractice'] += 1
-                
-                # Count converted retainers
-                if lead.get('is_converted', False):
-                    bucketed_data[bucket_name]['retainers'] += 1
-                    
-                    # Track unique case using the case_id from grouping
-                    lead_id = lead.get('id', '')
-                    case_id = case_assignments.get(lead_id, f"unknown_{lead_id}")
-                    cases_by_bucket[bucket_name].add(case_id)
-                else:
-                    # In practice but not converted = unqualified
-                    bucketed_data[bucket_name]['unqualified'] += 1
-            
-            # Count pending retainers separately
-            if lead.get('is_pending', False):
-                bucketed_data[bucket_name]['pendingRetainers'] += 1
-    
-    # Convert case sets to counts
-    for bucket_name in bucketed_data:
-        bucketed_data[bucket_name]['cases'] = len(cases_by_bucket[bucket_name])
-    
-    # Calculate total retainers (signed + pending) and percentages
-    for bucket_name, data in bucketed_data.items():
-        # Total retainers includes both signed and pending
-        data['totalRetainers'] = data['retainers'] + data['pendingRetainers']
-        
-        # Calculate percentages
-        if data['inPractice'] > 0:
-            data['inPracticePercent'] = round(data['inPractice'] / data['leads'], 3) if data['leads'] > 0 else 0
-            data['unqualifiedPercent'] = round(data['unqualified'] / data['inPractice'], 3)
-            data['conversionRate'] = round(data['retainers'] / data['inPractice'], 3)
-        else:
-            data['inPracticePercent'] = 0
-            data['unqualifiedPercent'] = 0
-            data['conversionRate'] = 0
-        
-        # Calculate cost metrics
-        if data['leads'] > 0:
-            data['costPerLead'] = round(data['cost'] / data['leads'], 2)
-        
-        # Cost per case based on unique cases
-        if data['cases'] > 0:
-            data['cpa'] = round(data['cost'] / data['cases'], 2)
-        
-        # Cost per retainer based on signed retainers only (for now)
-        if data['retainers'] > 0:
-            data['costPerRetainer'] = round(data['cost'] / data['retainers'], 2)
-    
-    # Log summary for debugging
-    total_leads = sum(b['leads'] for b in bucketed_data.values())
-    total_cases = sum(b['cases'] for b in bucketed_data.values())
-    total_retainers = sum(b['retainers'] for b in bucketed_data.values())
-    total_pending = sum(b.get('pendingRetainers', 0) for b in bucketed_data.values())
-    total_in_practice = sum(b['inPractice'] for b in bucketed_data.values())
-    total_unqualified = sum(b['unqualified'] for b in bucketed_data.values())
-    total_cost = sum(b['cost'] for b in bucketed_data.values())
-    
-    # Count LSA campaigns
-    lsa_buckets = ['California LSA', 'Arizona LSA', 'Georgia LSA', 'Texas LSA']
-    lsa_count = sum(len(bucketed_data[b]['campaigns']) for b in lsa_buckets if b in bucketed_data)
-    lsa_spend = sum(bucketed_data[b]['cost'] for b in lsa_buckets if b in bucketed_data)
-    
-    logger.info(f"📊 Summary: {total_leads} leads, {total_in_practice} in practice, "
-                f"{total_unqualified} unqualified (in practice but not converted), "
-                f"{total_cases} cases, {total_retainers} signed retainers, "
-                f"{total_pending} pending retainers")
-    
-    if lsa_count > 0:
-        logger.info(f"📍 LSA Campaigns: {lsa_count} campaigns, ${lsa_spend:,.2f} spend")
-    
-    logger.info(f"💰 Total Spend: ${total_cost:,.2f}")
-    
-    if excluded_counts['total'] > 0:
-        logger.info(f"🚫 Excluded leads: {excluded_counts['total']} total "
-                    f"(Spam: {excluded_counts['spam']}, Abandoned: {excluded_counts['abandoned']}, "
-                    f"Duplicate: {excluded_counts['duplicate']})")
-    
-    return list(bucketed_data.values()), unmapped_campaigns, unmapped_utm_campaigns, excluded_counts
-
 # ========== API ROUTES ==========
 
 @app.route('/')
@@ -1413,8 +1291,18 @@ def comparison_dashboard_page():
     """Serve the comparison dashboard HTML"""
     return render_template('comparison-dashboard.html')
 
-# @app.route('/api/status')
-# def api_status():
+@app.route('/current-month-performance')
+def current_month_performance_page():
+    """Serve the current month performance dashboard HTML"""
+    return render_template('current-month-performance.html')
+
+@app.route('/annual-analytics')
+def annual_analytics_page():
+    """Serve the annual analytics HTML"""
+    return render_template('annual_analytics.html')
+
+@app.route('/api/status')
+def api_status():
     """Check API connection status"""
     if not ads_manager.client:
         ads_manager.initialize()
@@ -1429,7 +1317,7 @@ def comparison_dashboard_page():
         'litify_available': SALESFORCE_AVAILABLE,
         'litify_connected': litify_manager.connected,
         'litify_error': litify_manager.error,
-        'timestamp': datetime.now().isoformat()
+        'timestamp': datetime.now(PACIFIC_TZ).isoformat()
     })
 
 @app.route('/api/dashboard-data')
@@ -1451,7 +1339,7 @@ def dashboard_data():
     # Create cache key based on filters
     cache_key = f"{start_date}_{end_date}_{limit}_{include_spam}_{include_abandoned}_{include_duplicate}"
     
-    # Check cache validity
+    # Check cache validity - SKIP if force_refresh is true
     cache_valid = False
     if not force_refresh and CACHE_DATA and CACHE_TIME:
         cached_key = CACHE_DATA.get('cache_key')
@@ -1462,8 +1350,20 @@ def dashboard_data():
     if cache_valid:
         return jsonify(CACHE_DATA)
     
+    # If force_refresh, clear the performance caches too
+    if force_refresh:
+        logger.info("Force refresh requested - clearing all caches")
+        CACHE_DATA = None
+        CACHE_TIME = None
+        # Clear performance caches if they exist
+        if hasattr(global_cache, 'clear'):
+            global_cache.clear()
+        if hasattr(daily_cache, 'clear'):
+            daily_cache.clear()
+    
     logger.info(f"Fetching fresh data for filters: start={start_date}, end={end_date}, limit={limit}, "
-                f"include_spam={include_spam}, include_abandoned={include_abandoned}, include_duplicate={include_duplicate}")
+                f"include_spam={include_spam}, include_abandoned={include_abandoned}, include_duplicate={include_duplicate}, "
+                f"force_refresh={force_refresh}")
     
     # Initialize managers if needed
     if not ads_manager.client:
@@ -1483,13 +1383,14 @@ def dashboard_data():
             data_source = 'Google Ads API'
             logger.info(f"Fetched {len(campaigns)} campaigns from Google Ads")
     
-    # Fetch Litify leads (only those with UTM Campaign)
+    # Fetch Litify leads (only those with UTM Campaign) - pass force_refresh parameter
     if litify_manager.connected:
         litify_leads = litify_manager.fetch_detailed_leads(
             start_date, end_date, limit=limit,
             include_spam=include_spam,
             include_abandoned=include_abandoned,
-            include_duplicate=include_duplicate
+            include_duplicate=include_duplicate,
+            force_refresh=force_refresh  # Add this parameter
         )
         if litify_leads:
             if data_source == 'Google Ads API':
@@ -1523,7 +1424,7 @@ def dashboard_data():
         'litify_leads': litify_leads,
         'available_buckets': list(BUCKET_PRIORITY),  # Include list of all available bucket names
         'data_source': data_source,
-        'timestamp': datetime.now().isoformat(),
+        'timestamp': datetime.now(PACIFIC_TZ).isoformat(),
         'date_range': {
             'start': start_date or 'today',
             'end': end_date or 'today'
@@ -1534,12 +1435,17 @@ def dashboard_data():
             'include_duplicate': include_duplicate
         },
         'excluded_lead_counts': excluded_counts,
-        'cache_key': cache_key
+        'cache_key': cache_key,
+        'force_refresh': force_refresh  # Include this in response for debugging
     }
     
-    # Cache the data
-    CACHE_DATA = response_data
-    CACHE_TIME = datetime.now()
+    # Cache the data only if not force_refresh
+    if not force_refresh:
+        CACHE_DATA = response_data
+        CACHE_TIME = datetime.now()
+        logger.info("Data cached for future requests")
+    else:
+        logger.info("Skipping cache due to force_refresh")
     
     return jsonify(response_data)
 
@@ -1666,9 +1572,12 @@ def api_all_campaigns():
     if not ads_manager.client:
         ads_manager.initialize()
     
-    if ads_manager.connected:9
-    campaigns = ads_manager.fetch_campaigns()
-    if campaigns:
+    if ads_manager.connected:
+        # Use Pacific Time for fetching
+        now_pt = datetime.now(PACIFIC_TZ)
+        today = now_pt.strftime('%Y-%m-%d')
+        campaigns = ads_manager.fetch_campaigns(today, today)
+        if campaigns:
             return jsonify([c['name'] for c in campaigns])
     
     # Return demo campaign names from module
@@ -1692,8 +1601,7 @@ def api_forecast_settings():
 @time_it
 def api_forecast_pacing():
     """
-    Get current month pacing data with performance optimization
-    Leverages daily_cache for better performance
+    Get current month pacing data with performance optimization and Pacific Time
     """
     # Get date parameters (default to current month)
     start_date = request.args.get('start_date')
@@ -1705,11 +1613,11 @@ def api_forecast_pacing():
     include_abandoned = request.args.get('include_abandoned', 'false').lower() == 'true'
     include_duplicate = request.args.get('include_duplicate', 'false').lower() == 'true'
     
-    # Default to current month if not specified
+    # Default to current month if not specified (Pacific Time)
     if not start_date or not end_date:
-        now = datetime.now()
-        start_date = datetime(now.year, now.month, 1).strftime('%Y-%m-%d')
-        end_date = datetime(now.year, now.month, calendar.monthrange(now.year, now.month)[1]).strftime('%Y-%m-%d')
+        now_pt = datetime.now(PACIFIC_TZ)
+        start_date = datetime(now_pt.year, now_pt.month, 1).strftime('%Y-%m-%d')
+        end_date = datetime(now_pt.year, now_pt.month, calendar.monthrange(now_pt.year, now_pt.month)[1]).strftime('%Y-%m-%d')
     
     # Create cache key for pacing data
     cache_key = ['forecast_pacing', start_date, end_date, include_spam, include_abandoned, include_duplicate]
@@ -1746,7 +1654,7 @@ def api_forecast_pacing():
             'start': start_date,
             'end': end_date
         },
-        'timestamp': datetime.now().isoformat()
+        'timestamp': datetime.now(PACIFIC_TZ).isoformat()
     }
     
     # Use parallel fetch for Google Ads and Litify data
@@ -1848,8 +1756,8 @@ def api_forecast_pacing():
             pacing_data['totals']['retainers'] += metrics['retainers']
     
     # Fetch daily data for trend chart (if within current month)
-    now = datetime.now()
-    if start_date == datetime(now.year, now.month, 1).strftime('%Y-%m-%d'):
+    now_pt = datetime.now(PACIFIC_TZ)
+    if start_date == datetime(now_pt.year, now_pt.month, 1).strftime('%Y-%m-%d'):
         daily_data = fetch_daily_pacing_data(start_date, end_date, include_spam, include_abandoned, include_duplicate)
         pacing_data['daily_data'] = daily_data
     
@@ -1860,6 +1768,7 @@ def api_forecast_pacing():
     
     return jsonify(pacing_data)
 
+
 @app.route('/api/forecast-projections')
 @time_it
 def api_forecast_projections():
@@ -1869,7 +1778,7 @@ def api_forecast_projections():
     force_refresh = request.args.get('force_refresh', 'false').lower() == 'true'
     
     # Cache key for projections
-    cache_key = ['forecast_projections', datetime.now().strftime('%Y-%m-%d')]
+    cache_key = ['forecast_projections', datetime.now(PACIFIC_TZ).strftime('%Y-%m-%d')]
     
     if not force_refresh:
         cached = global_cache.get(cache_key)
@@ -1884,10 +1793,10 @@ def api_forecast_projections():
     # Load forecast settings
     settings = load_forecast_settings()
     
-    # Calculate time factors
-    now = datetime.now()
-    days_in_month = calendar.monthrange(now.year, now.month)[1]
-    days_elapsed = now.day
+    # Calculate time factors (Pacific Time)
+    now_pt = datetime.now(PACIFIC_TZ)
+    days_in_month = calendar.monthrange(now_pt.year, now_pt.month)[1]
+    days_elapsed = now_pt.day
     days_remaining = days_in_month - days_elapsed
     percent_complete = (days_elapsed / days_in_month) * 100
     
@@ -1908,7 +1817,7 @@ def api_forecast_projections():
             'percent_complete': percent_complete
         },
         'recommendations': [],
-        'timestamp': datetime.now().isoformat()
+        'timestamp': datetime.now(PACIFIC_TZ).isoformat()
     }
     
     # Calculate projections by state
@@ -2005,11 +1914,12 @@ def api_forecast_projections():
     
     return jsonify(projections)
 
+
 @app.route('/api/forecast-daily-trend')
 @time_it
 def api_forecast_daily_trend():
     """
-    Get daily trend data for the current month with caching optimization
+    Get daily trend data for the current month with caching optimization and Pacific Time
     """
     force_refresh = request.args.get('force_refresh', 'false').lower() == 'true'
     
@@ -2019,7 +1929,7 @@ def api_forecast_daily_trend():
     include_duplicate = request.args.get('include_duplicate', 'false').lower() == 'true'
     
     # Cache key
-    cache_key = ['forecast_daily_trend', datetime.now().strftime('%Y-%m'), 
+    cache_key = ['forecast_daily_trend', datetime.now(PACIFIC_TZ).strftime('%Y-%m'), 
                  include_spam, include_abandoned, include_duplicate]
     
     if not force_refresh:
@@ -2028,11 +1938,11 @@ def api_forecast_daily_trend():
             logger.info("✅ Returning cached daily trend data")
             return jsonify(cached)
     
-    # Get current month date range
-    now = datetime.now()
-    month_start = datetime(now.year, now.month, 1)
-    month_end = datetime(now.year, now.month, calendar.monthrange(now.year, now.month)[1])
-    today = min(now, month_end)
+    # Get current month date range (Pacific Time)
+    now_pt = datetime.now(PACIFIC_TZ)
+    month_start = datetime(now_pt.year, now_pt.month, 1, tzinfo=PACIFIC_TZ)
+    month_end = datetime(now_pt.year, now_pt.month, calendar.monthrange(now_pt.year, now_pt.month)[1], tzinfo=PACIFIC_TZ)
+    today = min(now_pt, month_end)
     
     daily_data = []
     cumulative = {'spend': 0, 'leads': 0, 'cases': 0, 'retainers': 0}
@@ -2064,8 +1974,8 @@ def api_forecast_daily_trend():
     
     result = {
         'daily_data': daily_data,
-        'month': now.strftime('%Y-%m'),
-        'timestamp': datetime.now().isoformat()
+        'month': now_pt.strftime('%Y-%m'),
+        'timestamp': datetime.now(PACIFIC_TZ).isoformat()
     }
     
     # Cache the result
@@ -2075,7 +1985,7 @@ def api_forecast_daily_trend():
     
     return jsonify(result)
 
-# ==================== HELPER FUNCTIONS ====================
+# Helper functions continue...
 
 def determine_state_from_campaign(campaign_name):
     """Map campaign name to state using bucket mappings"""
@@ -2137,7 +2047,7 @@ def determine_state_from_utm(utm_campaign):
 
 def fetch_single_day_metrics(date_str, include_spam=False, include_abandoned=False, include_duplicate=False):
     """
-    Fetch metrics for a single day, leveraging daily_cache
+    Fetch metrics for a single day with Pacific Time support
     """
     # Check daily cache first
     cache_type = f'metrics_{include_spam}_{include_abandoned}_{include_duplicate}'
@@ -2298,23 +2208,23 @@ def generate_forecast_recommendations(projections):
     return recommendations[:10]  # Return top 10 recommendations
 
 def calculate_comparison_dates(period, custom_start=None, custom_end=None):
-    """Calculate date ranges for comparison periods"""
-    today = datetime.now().date()
+    """Calculate date ranges for comparison periods with Pacific Time"""
+    today_pt = datetime.now(PACIFIC_TZ).date()
     
     if period == 'today':
-        start = end = today
-        compare_start = compare_end = today - timedelta(days=1)
+        start = end = today_pt
+        compare_start = compare_end = today_pt - timedelta(days=1)
     elif period == 'yesterday':
-        start = end = today - timedelta(days=1)
-        compare_start = compare_end = today - timedelta(days=2)
+        start = end = today_pt - timedelta(days=1)
+        compare_start = compare_end = today_pt - timedelta(days=2)
     elif period == 'week':
-        start = today - timedelta(days=today.weekday())
-        end = today
+        start = today_pt - timedelta(days=today_pt.weekday())
+        end = today_pt
         compare_start = start - timedelta(days=7)
         compare_end = end - timedelta(days=7)
     elif period == 'month':
-        start = date(today.year, today.month, 1)
-        end = today
+        start = date(today_pt.year, today_pt.month, 1)
+        end = today_pt
         # Previous month
         if start.month == 1:
             compare_start = date(start.year-1, 12, 1)
@@ -2328,8 +2238,8 @@ def calculate_comparison_dates(period, custom_start=None, custom_end=None):
         compare_start = start - timedelta(days=period_days)
         compare_end = end - timedelta(days=period_days)
     else:  # mtd
-        start = date(today.year, today.month, 1)
-        end = today
+        start = date(today_pt.year, today_pt.month, 1)
+        end = today_pt
         # Same period last month
         if start.month == 1:
             compare_start = date(start.year-1, 12, 1)
@@ -2406,12 +2316,13 @@ def fetch_period_data(start_date, end_date, include_spam, include_abandoned, inc
     else:
         summary['avg_cpr'] = 0
     
-    if summary['total_in_practice'] > 0:
-        summary['conversion_rate'] = summary['total_retainers'] / summary['total_in_practice']
+    if summary['total_leads'] > 0:
+       summary['conversion_rate'] = summary['total_cases'] / summary['total_leads']
     else:
         summary['conversion_rate'] = 0
     
     return summary
+
 
 @app.route('/api/comparison-data')
 def api_comparison_data():
@@ -2432,27 +2343,27 @@ def api_comparison_data():
     include_abandoned = request.args.get('include_abandoned', 'false').lower() == 'true'
     include_duplicate = request.args.get('include_duplicate', 'false').lower() == 'true'
     
-    # Calculate date ranges
+    # Calculate date ranges with Pacific Time
     if period == 'custom' and custom_start and custom_end:
         current_start = custom_start
         current_end = custom_end
     else:
-        today = datetime.now().date()
+        today_pt = datetime.now(PACIFIC_TZ).date()
         if period == 'today':
-            current_start = current_end = today.strftime('%Y-%m-%d')
+            current_start = current_end = today_pt.strftime('%Y-%m-%d')
         elif period == 'yesterday':
-            yesterday = today - timedelta(days=1)
+            yesterday = today_pt - timedelta(days=1)
             current_start = current_end = yesterday.strftime('%Y-%m-%d')
         elif period == 'week':
-            week_start = today - timedelta(days=today.weekday())
+            week_start = today_pt - timedelta(days=today_pt.weekday())
             current_start = week_start.strftime('%Y-%m-%d')
-            current_end = today.strftime('%Y-%m-%d')
+            current_end = today_pt.strftime('%Y-%m-%d')
         elif period == 'month':
-            current_start = date(today.year, today.month, 1).strftime('%Y-%m-%d')
-            current_end = today.strftime('%Y-%m-%d')
+            current_start = date(today_pt.year, today_pt.month, 1).strftime('%Y-%m-%d')
+            current_end = today_pt.strftime('%Y-%m-%d')
         else:  # mtd
-            current_start = date(today.year, today.month, 1).strftime('%Y-%m-%d')
-            current_end = today.strftime('%Y-%m-%d')
+            current_start = date(today_pt.year, today_pt.month, 1).strftime('%Y-%m-%d')
+            current_end = today_pt.strftime('%Y-%m-%d')
     
     compare_start, compare_end = calculate_comparison_dates(
         period, custom_start, custom_end
@@ -2494,12 +2405,12 @@ def api_comparison_data():
             'data': compare_data
         },
         'changes': changes,
-        'timestamp': datetime.now().isoformat()
+        'timestamp': datetime.now(PACIFIC_TZ).isoformat()
     })
 
 @app.route('/api/annual-data')
 def api_annual_data():
-    """Get annual data with monthly breakdown"""
+    """Get annual data with monthly breakdown and Pacific Time support"""
     try:
         # Initialize managers if needed
         if not ads_manager.client:
@@ -2513,9 +2424,9 @@ def api_annual_data():
         include_duplicate = request.args.get('include_duplicate', 'false').lower() == 'true'
         
         # Get current year or specified year
-        year = request.args.get('year', datetime.now().year, type=int)
-        current_date = datetime.now()
-        current_month = current_date.month if year == current_date.year else 12
+        year = request.args.get('year', datetime.now(PACIFIC_TZ).year, type=int)
+        current_date_pt = datetime.now(PACIFIC_TZ)
+        current_month = current_date_pt.month if year == current_date_pt.year else 12
         
         monthly_data = []
         annual_summary = {
@@ -2533,12 +2444,12 @@ def api_annual_data():
         
         # Process each month
         for month_num in range(1, current_month + 1):
-            month_date = datetime(year, month_num, 1)
+            month_date = datetime(year, month_num, 1, tzinfo=PACIFIC_TZ)
             month_name = month_date.strftime('%B')
-            is_current = (month_num == current_month and year == current_date.year)
+            is_current = (month_num == current_month and year == current_date_pt.year)
             
             # Skip future months
-            if month_date > current_date:
+            if month_date > current_date_pt:
                 monthly_data.append({
                     'month': month_name,
                     'month_num': month_num,
@@ -2561,16 +2472,16 @@ def api_annual_data():
             
             # Calculate date range for the month
             if month_num == 12:
-                next_month_date = datetime(year + 1, 1, 1)
+                next_month_date = datetime(year + 1, 1, 1, tzinfo=PACIFIC_TZ)
             else:
-                next_month_date = datetime(year, month_num + 1, 1)
+                next_month_date = datetime(year, month_num + 1, 1, tzinfo=PACIFIC_TZ)
             
             start_date = month_date.strftime('%Y-%m-%d')
             end_date = (next_month_date - timedelta(days=1)).strftime('%Y-%m-%d')
             
             # For current month, end at today
             if is_current:
-                end_date = current_date.strftime('%Y-%m-%d')
+                end_date = current_date_pt.strftime('%Y-%m-%d')
             
             # Fetch data for this month
             campaigns = None
@@ -2624,8 +2535,8 @@ def api_annual_data():
                 month_summary['cpa'] = round(month_summary['spend'] / month_summary['cases'], 2)
             if month_summary['retainers'] > 0:
                 month_summary['cpr'] = round(month_summary['spend'] / month_summary['retainers'], 2)
-            if month_summary['in_practice'] > 0:
-                month_summary['conversion_rate'] = round(month_summary['retainers'] / month_summary['in_practice'], 3)
+            if month_summary['leads'] > 0:
+                month_summary['conversion_rate'] = round(month_summary['cases'] / month_summary['leads'], 3)
             
             # Add to annual totals
             annual_summary['total_spend'] += month_summary['spend']
@@ -2651,8 +2562,8 @@ def api_annual_data():
             annual_summary['avg_cpa'] = round(annual_summary['total_spend'] / annual_summary['total_cases'], 2)
         if annual_summary['total_retainers'] > 0:
             annual_summary['avg_cpr'] = round(annual_summary['total_spend'] / annual_summary['total_retainers'], 2)
-        if annual_summary['total_in_practice'] > 0:
-            annual_summary['avg_conversion_rate'] = round(annual_summary['total_retainers'] / annual_summary['total_in_practice'], 3)
+        if annual_summary['total_leads'] > 0:
+            annual_summary['avg_conversion_rate'] = round(annual_summary['total_cases'] / annual_summary['total_leads'], 3)
         
         # Filter for past months only (excluding current month)
         past_months = [m for m in monthly_data if not m['is_current'] and not m['is_future']]
@@ -2708,233 +2619,14 @@ def health():
     """Health check endpoint"""
     return jsonify({
         'status': 'healthy',
-        'timestamp': datetime.now().isoformat()
+        'timestamp': datetime.now(PACIFIC_TZ).isoformat()
     })
-
-@app.route('/api/debug/campaigns-dump')
-def debug_campaigns_dump():
-    """
-    Debug route to dump ALL Google Ads campaigns (enabled and disabled) 
-    with their CIDs to a JSON file for easier LSA mapping
-    """
-    try:
-        # Initialize manager if needed
-        if not ads_manager.client:
-            ads_manager.initialize()
-        
-        if not ads_manager.connected:
-            return jsonify({
-                'success': False,
-                'error': 'Google Ads API not connected',
-                'details': ads_manager.error
-            }), 503
-        
-        # Fetch ALL campaigns (both enabled and disabled)
-        logger.info("🔍 Starting debug campaign dump - fetching ALL campaigns...")
-        
-        # Get customer ID
-        customer_id = os.getenv('GOOGLE_ADS_CUSTOMER_ID', '2419159990').replace('-', '')
-        ga_service = ads_manager.client.get_service("GoogleAdsService")
-        
-        # Query to get detailed campaign information including CID
-        query = """
-            SELECT
-                campaign.id,
-                campaign.name,
-                campaign.status,
-                campaign.advertising_channel_type,
-                campaign.advertising_channel_sub_type,
-                customer.id,
-                customer.descriptive_name,
-                metrics.cost_micros,
-                metrics.clicks,
-                metrics.impressions,
-                metrics.conversions
-            FROM campaign
-            WHERE segments.date DURING LAST_30_DAYS
-            ORDER BY campaign.id
-        """
-        
-        response = ga_service.search_stream(customer_id=customer_id, query=query)
-        
-        # Process campaigns with detailed information
-        campaigns_data = {}
-        lsa_campaigns = []
-        total_count = 0
-        
-        for batch in response:
-            for row in batch.results:
-                campaign_id = str(row.campaign.id)
-                campaign_name = row.campaign.name
-                
-                # Check if it's an LSA campaign
-                is_lsa = ("LocalServicesCampaign" in campaign_name or 
-                         "LSA" in campaign_name.upper() or
-                         row.campaign.advertising_channel_type.name == "LOCAL_SERVICES")
-                
-                campaign_info = {
-                    'campaign_id': campaign_id,
-                    'campaign_name': campaign_name,
-                    'status': row.campaign.status.name,
-                    'channel_type': row.campaign.advertising_channel_type.name if hasattr(row.campaign, 'advertising_channel_type') else 'UNKNOWN',
-                    'channel_sub_type': row.campaign.advertising_channel_sub_type.name if hasattr(row.campaign, 'advertising_channel_sub_type') else 'UNKNOWN',
-                    'customer_id': str(row.customer.id) if hasattr(row.customer, 'id') else customer_id,
-                    'is_lsa': is_lsa,
-                    'metrics_30_days': {
-                        'cost': float(row.metrics.cost_micros / 1_000_000) if row.metrics.cost_micros else 0,
-                        'clicks': int(row.metrics.clicks),
-                        'impressions': int(row.metrics.impressions),
-                        'conversions': float(row.metrics.conversions or 0)
-                    }
-                }
-                
-                # Add to appropriate collections
-                if campaign_id not in campaigns_data:
-                    campaigns_data[campaign_id] = campaign_info
-                    total_count += 1
-                    
-                    if is_lsa:
-                        lsa_campaigns.append(campaign_info)
-                else:
-                    # Update metrics if we've seen this campaign before (aggregating daily data)
-                    campaigns_data[campaign_id]['metrics_30_days']['cost'] += campaign_info['metrics_30_days']['cost']
-                    campaigns_data[campaign_id]['metrics_30_days']['clicks'] += campaign_info['metrics_30_days']['clicks']
-                    campaigns_data[campaign_id]['metrics_30_days']['impressions'] += campaign_info['metrics_30_days']['impressions']
-                    campaigns_data[campaign_id]['metrics_30_days']['conversions'] += campaign_info['metrics_30_days']['conversions']
-        
-        # Organize data by state/region for LSAs
-        lsa_by_region = {
-            'CA': [],
-            'AZ': [],
-            'GA': [],
-            'TX': [],
-            'Unknown': []
-        }
-        
-        for lsa in lsa_campaigns:
-            name = lsa['campaign_name']
-            matched = False
-            
-            # Try to identify state from campaign name
-            for state in ['CA', 'AZ', 'GA', 'TX']:
-                if f":{state}" in name or f"-{state}-" in name or f" {state} " in name:
-                    lsa_by_region[state].append(lsa)
-                    matched = True
-                    break
-            
-            # Additional pattern matching
-            if not matched:
-                if any(x in name.upper() for x in ['CALIFORNIA', 'CALIF', 'LOS ANGELES', 'SAN FRANCISCO', 'NEWPORT']):
-                    lsa_by_region['CA'].append(lsa)
-                elif any(x in name.upper() for x in ['ARIZONA', 'PHOENIX']):
-                    lsa_by_region['AZ'].append(lsa)
-                elif any(x in name.upper() for x in ['GEORGIA', 'ATLANTA', 'ROSWELL']):
-                    lsa_by_region['GA'].append(lsa)
-                elif any(x in name.upper() for x in ['TEXAS', 'HOUSTON', 'DALLAS']):
-                    lsa_by_region['TX'].append(lsa)
-                else:
-                    lsa_by_region['Unknown'].append(lsa)
-        
-        # Create organized output
-        output_data = {
-            'generated_at': datetime.now().isoformat(),
-            'customer_id': customer_id,
-            'total_campaigns': total_count,
-            'total_lsa_campaigns': len(lsa_campaigns),
-            'summary': {
-                'enabled_campaigns': sum(1 for c in campaigns_data.values() if c['status'] == 'ENABLED'),
-                'paused_campaigns': sum(1 for c in campaigns_data.values() if c['status'] == 'PAUSED'),
-                'removed_campaigns': sum(1 for c in campaigns_data.values() if c['status'] == 'REMOVED'),
-                'total_30_day_spend': sum(c['metrics_30_days']['cost'] for c in campaigns_data.values())
-            },
-            'lsa_campaigns_by_region': lsa_by_region,
-            'all_campaigns': list(campaigns_data.values()),
-            'campaign_name_to_id_mapping': {
-                c['campaign_name']: c['campaign_id'] 
-                for c in campaigns_data.values()
-            }
-        }
-        
-        # Save to JSON file
-        filename = f"campaign_dump_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        filepath = os.path.join(os.getcwd(), filename)
-        
-        with open(filepath, 'w') as f:
-            json.dump(output_data, f, indent=2)
-        
-        logger.info(f"✅ Campaign dump saved to {filepath}")
-        logger.info(f"📊 Found {total_count} total campaigns, {len(lsa_campaigns)} LSA campaigns")
-        
-        # Also save a simplified LSA mapping file for easier reference
-        lsa_mapping_file = f"lsa_mapping_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        lsa_mapping_path = os.path.join(os.getcwd(), lsa_mapping_file)
-        
-        lsa_mapping_data = {
-            'generated_at': datetime.now().isoformat(),
-            'lsa_campaigns': [
-                {
-                    'name': c['campaign_name'],
-                    'id': c['campaign_id'],
-                    'status': c['status'],
-                    'region': next((k for k, v in lsa_by_region.items() if c in v), 'Unknown')
-                }
-                for c in lsa_campaigns
-            ],
-            'suggested_mapping': {
-                'California LSA': [c['campaign_name'] for c in lsa_by_region['CA']],
-                'Arizona LSA': [c['campaign_name'] for c in lsa_by_region['AZ']],
-                'Georgia LSA': [c['campaign_name'] for c in lsa_by_region['GA']],
-                'Texas LSA': [c['campaign_name'] for c in lsa_by_region['TX']],
-                'Unmapped LSA': [c['campaign_name'] for c in lsa_by_region['Unknown']]
-            }
-        }
-        
-        with open(lsa_mapping_path, 'w') as f:
-            json.dump(lsa_mapping_data, f, indent=2)
-        
-        logger.info(f"✅ LSA mapping saved to {lsa_mapping_path}")
-        
-        return jsonify({
-            'success': True,
-            'message': f'Campaign dump successful! Found {total_count} campaigns total, {len(lsa_campaigns)} LSA campaigns',
-            'files_created': [filename, lsa_mapping_file],
-            'summary': {
-                'total_campaigns': total_count,
-                'lsa_campaigns': len(lsa_campaigns),
-                'enabled': output_data['summary']['enabled_campaigns'],
-                'paused': output_data['summary']['paused_campaigns'],
-                'removed': output_data['summary']['removed_campaigns']
-            },
-            'lsa_by_region': {k: len(v) for k, v in lsa_by_region.items()},
-            'preview': {
-                'sample_lsa': lsa_campaigns[:3] if lsa_campaigns else [],
-                'sample_regular': [c for c in list(campaigns_data.values())[:3] if not c['is_lsa']]
-            }
-        })
-        
-    except Exception as e:
-        logger.error(f"❌ Error in debug campaign dump: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'traceback': traceback.format_exc()
-        }), 500
-
-# Add these routes to your app.py file after the other routes
-
-@app.route('/current-month-performance')
-def current_month_performance_page():
-    """Serve the current month performance dashboard HTML"""
-    return render_template('current-month-performance.html')
 
 @app.route('/api/current-month-daily')
 def api_current_month_daily():
     """
     Get daily performance data for the current month with day-over-day deltas
-    Including bucket-level breakdown for each day
+    Including bucket-level breakdown for each day - Pacific Time support
     """
     try:
         # Initialize managers if needed
@@ -2948,11 +2640,11 @@ def api_current_month_daily():
         include_abandoned = request.args.get('include_abandoned', 'false').lower() == 'true'
         include_duplicate = request.args.get('include_duplicate', 'false').lower() == 'true'
         
-        # Get current month date range
-        now = datetime.now()
-        month_start = date(now.year, now.month, 1)
-        month_end = date(now.year, now.month, calendar.monthrange(now.year, now.month)[1])
-        today = now.date()
+        # Get current month date range in Pacific Time
+        now_pt = datetime.now(PACIFIC_TZ)
+        month_start = date(now_pt.year, now_pt.month, 1)
+        month_end = date(now_pt.year, now_pt.month, calendar.monthrange(now_pt.year, now_pt.month)[1])
+        today = now_pt.date()
         
         # Initialize daily data structure
         daily_data = []
@@ -2986,7 +2678,7 @@ def api_current_month_daily():
         
         # Process each day of the month
         for day_num in range(1, month_end.day + 1):
-            current_date = date(now.year, now.month, day_num)
+            current_date = date(now_pt.year, now_pt.month, day_num)
             date_str = current_date.strftime('%Y-%m-%d')
             
             # Skip future dates
@@ -3283,7 +2975,7 @@ def api_current_month_daily():
             'avgCPL': round(month_totals['total_spend'] / month_totals['total_leads'], 2) if month_totals['total_leads'] > 0 else 0,
             'avgCPA': round(month_totals['total_spend'] / month_totals['total_cases'], 2) if month_totals['total_cases'] > 0 else 0,
             'avgCPR': round(month_totals['total_spend'] / month_totals['total_retainers'], 2) if month_totals['total_retainers'] > 0 else 0,
-            'convRate': round(month_totals['total_retainers'] / month_totals['total_in_practice'], 3) if month_totals['total_in_practice'] > 0 else 0,
+            'convRate': round(month_totals['total_cases'] / month_totals['total_leads'], 3) if month_totals['total_leads'] > 0 else 0,
             'dailyAvgSpend': round(month_totals['total_spend'] / days_elapsed, 2) if days_elapsed > 0 else 0,
             'dailyAvgLeads': round(month_totals['total_leads'] / days_elapsed, 1) if days_elapsed > 0 else 0,
             # Today's deltas
@@ -3312,7 +3004,7 @@ def api_current_month_daily():
             'worst_days': worst_days,
             'available_buckets': available_buckets,  # Include available buckets for filtering
             'data_source': data_source,
-            'timestamp': datetime.now().isoformat()
+            'timestamp': datetime.now(PACIFIC_TZ).isoformat()
         })
         
     except Exception as e:
@@ -3320,13 +3012,14 @@ def api_current_month_daily():
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
+    
 # Add this endpoint to your app.py - it fetches day by day with progress updates
+
 @app.route('/api/current-month-daily-optimized')
 def api_current_month_daily_optimized():
     """
     Accurate day-by-day fetching with real-time progress updates
-    Shows exactly which date is being processed
+    Shows exactly which date is being processed - Pacific Time support
     """
     try:
         import calendar
@@ -3343,11 +3036,11 @@ def api_current_month_daily_optimized():
         include_abandoned = request.args.get('include_abandoned', 'false').lower() == 'true'
         include_duplicate = request.args.get('include_duplicate', 'false').lower() == 'true'
         
-        # Get current month date range
-        now = datetime.now()
-        month_start = date(now.year, now.month, 1)
-        month_end = date(now.year, now.month, calendar.monthrange(now.year, now.month)[1])
-        today = now.date()
+        # Get current month date range in Pacific Time
+        now_pt = datetime.now(PACIFIC_TZ)
+        month_start = date(now_pt.year, now_pt.month, 1)
+        month_end = date(now_pt.year, now_pt.month, calendar.monthrange(now_pt.year, now_pt.month)[1])
+        today = now_pt.date()
         
         logger.info(f"🚀 Starting ACCURATE day-by-day fetch for {month_start} to {today}")
         
@@ -3387,7 +3080,7 @@ def api_current_month_daily_optimized():
         total_days = today.day
         
         for day_num in range(1, month_end.day + 1):
-            current_date = date(now.year, now.month, day_num)
+            current_date = date(now_pt.year, now_pt.month, day_num)
             date_str = current_date.strftime('%Y-%m-%d')
             
             # Skip future dates
@@ -3433,7 +3126,7 @@ def api_current_month_daily_optimized():
             if ads_manager.connected:
                 campaigns = ads_manager.fetch_campaigns(date_str, date_str, active_only=False)
                 if campaigns:
-                    logger.info(f"  ✓ Fetched {len(campaigns)} campaigns for {date_str}")
+                    logger.info(f"  ✔️ Fetched {len(campaigns)} campaigns for {date_str}")
             
             # Fetch Litify leads for this day
             if litify_manager.connected:
@@ -3444,7 +3137,7 @@ def api_current_month_daily_optimized():
                     include_duplicate=include_duplicate
                 )
                 if litify_leads:
-                    logger.info(f"  ✓ Fetched {len(litify_leads)} Litify leads for {date_str}")
+                    logger.info(f"  ✔️ Fetched {len(litify_leads)} Litify leads for {date_str}")
             
             # Process data for this day and get bucket breakdown
             if campaigns or litify_leads:
@@ -3693,7 +3386,7 @@ def api_current_month_daily_optimized():
             'avgCPL': round(month_totals['total_spend'] / month_totals['total_leads'], 2) if month_totals['total_leads'] > 0 else 0,
             'avgCPA': round(month_totals['total_spend'] / month_totals['total_cases'], 2) if month_totals['total_cases'] > 0 else 0,
             'avgCPR': round(month_totals['total_spend'] / month_totals['total_retainers'], 2) if month_totals['total_retainers'] > 0 else 0,
-            'convRate': round(month_totals['total_retainers'] / month_totals['total_in_practice'], 3) if month_totals['total_in_practice'] > 0 else 0,
+            'convRate': round(month_totals['total_cases'] / month_totals['total_leads'], 3) if month_totals['total_leads'] > 0 else 0,
             'dailyAvgSpend': round(month_totals['total_spend'] / days_elapsed, 2) if days_elapsed > 0 else 0,
             'dailyAvgLeads': round(month_totals['total_leads'] / days_elapsed, 1) if days_elapsed > 0 else 0,
             # Today's deltas
@@ -3727,7 +3420,7 @@ def api_current_month_daily_optimized():
             'available_buckets': available_buckets,
             'data_source': data_source,
             'accuracy': 'HIGH',  # This is accurate day-by-day data
-            'timestamp': datetime.now().isoformat()
+            'timestamp': datetime.now(PACIFIC_TZ).isoformat()
         })
         
     except Exception as e:
@@ -3739,7 +3432,7 @@ def api_current_month_daily_optimized():
 @app.route('/api/debug/lsa-discovery')
 def debug_lsa_discovery():
     """
-    Debug route to discover all LSA campaigns across all accounts
+    Debug route to discover all LSA campaigns across all accounts - Pacific Time
     """
     try:
         # Initialize manager if needed
@@ -3755,9 +3448,11 @@ def debug_lsa_discovery():
         
         logger.info("🔍 Starting LSA discovery across all accounts...")
         
-        # Get date range for last 30 days
-        end_date = datetime.now().strftime('%Y-%m-%d')
-        start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+        # Get date range for last 30 days in Pacific Time
+        end_date_pt = datetime.now(PACIFIC_TZ)
+        start_date_pt = end_date_pt - timedelta(days=30)
+        end_date = end_date_pt.strftime('%Y-%m-%d')
+        start_date = start_date_pt.strftime('%Y-%m-%d')
         
         # Fetch all campaigns including LSA
         campaigns = ads_manager.fetch_campaigns(start_date, end_date, active_only=False)
@@ -3792,7 +3487,7 @@ def debug_lsa_discovery():
         
         for campaign in lsa_campaigns:
             name = campaign.get('name', '')
-            state = ads_manager.get_state_from_campaign_name(name)
+            state = get_state_from_campaign_bucket(name)
             
             if state and state in lsa_by_region:
                 lsa_by_region[state].append(campaign)
@@ -3802,7 +3497,7 @@ def debug_lsa_discovery():
         # Prepare output
         output = {
             'success': True,
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': datetime.now(PACIFIC_TZ).isoformat(),
             'accounts_checked': ads_manager.customer_ids,
             'is_mcc': ads_manager.is_mcc,
             'summary': {
@@ -3844,7 +3539,7 @@ def debug_lsa_discovery():
                 'spend': c.get('cost', 0),
                 'conversions': c.get('conversions', 0),
                 'status': c.get('status', ''),
-                'region': ads_manager.get_state_from_campaign_name(c.get('name', ''))
+                'region': get_state_from_campaign_bucket(c.get('name', ''))
             }
             for c in lsa_campaigns
         ]
@@ -3887,14 +3582,14 @@ def debug_lsa_discovery():
         output['suggested_campaign_mapping'] = suggested_mapping
         
         # Save to file
-        filename = f"lsa_discovery_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        filename = f"lsa_discovery_{datetime.now(PACIFIC_TZ).strftime('%Y%m%d_%H%M%S')}.json"
         filepath = os.path.join(os.getcwd(), filename)
         
         with open(filepath, 'w') as f:
             json.dump(output, f, indent=2)
         
         logger.info(f"✅ LSA discovery complete. Found {len(lsa_campaigns)} LSA campaigns")
-        logger.info(f"📁 Report saved to {filename}")
+        logger.info(f"📂 Report saved to {filename}")
         
         output['file_saved'] = filename
         
@@ -3913,7 +3608,7 @@ def debug_lsa_discovery():
 @app.route('/api/debug/lsa-spend-check')
 def debug_lsa_spend_check():
     """
-    Debug route to check if LSA campaigns are being fetched and processed correctly
+    Debug route to check if LSA campaigns are being fetched and processed correctly - Pacific Time
     """
     try:
         # Force refresh cache first
@@ -3931,14 +3626,15 @@ def debug_lsa_spend_check():
                 'error': 'Google Ads API not connected'
             }), 503
         
-        # Get today's date for testing
-        today = datetime.now().strftime('%Y-%m-%d')
+        # Get today's date for testing in Pacific Time
+        today_pt = datetime.now(PACIFIC_TZ)
+        today = today_pt.strftime('%Y-%m-%d')
         
         # Fetch campaigns for today (or last 7 days for more data)
         end_date = today
-        start_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+        start_date = (today_pt - timedelta(days=7)).strftime('%Y-%m-%d')
         
-        logger.info(f"🔍 Checking LSA spend from {start_date} to {end_date}")
+        logger.info(f"🔍 Checking LSA spend from {start_date} to {end_date} PT")
         
         # Fetch ALL campaigns including LSA
         campaigns = ads_manager.fetch_campaigns(start_date, end_date, active_only=False)
@@ -3994,7 +3690,7 @@ def debug_lsa_spend_check():
         # Create diagnostic output
         output = {
             'success': True,
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': datetime.now(PACIFIC_TZ).isoformat(),
             'date_range': {
                 'start': start_date,
                 'end': end_date
@@ -4061,8 +3757,9 @@ def debug_bucket_check():
         
         # Fetch current campaigns to test processing
         if ads_manager.connected:
-            today = datetime.now().strftime('%Y-%m-%d')
-            week_ago = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+            today_pt = datetime.now(PACIFIC_TZ)
+            today = today_pt.strftime('%Y-%m-%d')
+            week_ago = (today_pt - timedelta(days=7)).strftime('%Y-%m-%d')
             campaigns = ads_manager.fetch_campaigns(week_ago, today, active_only=False)
         else:
             campaigns = []
@@ -4093,7 +3790,7 @@ def debug_bucket_check():
         
         return jsonify({
             'success': True,
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': datetime.now(PACIFIC_TZ).isoformat(),
             'diagnostics': {
                 'campaign_buckets_file': 'campaign_mappings.json exists' if os.path.exists('campaign_mappings.json') else 'NOT FOUND',
                 'lsa_buckets_in_memory': lsa_buckets,
@@ -4199,26 +3896,174 @@ def fix_lsa_mapping():
             'error': str(e)
         }), 500
 
-@app.route('/annual-analytics')
-def annual_analytics_page():
-    """Serve the annual analytics HTML"""
-    return render_template('annual_analytics.html')
+@app.route('/api/debug/timezone-check')
+def debug_timezone_check():
+    """
+    Debug route to verify timezone settings and date conversions
+    """
+    try:
+        # Get various time representations
+        now_utc = datetime.now(pytz.UTC)
+        now_pt = datetime.now(PACIFIC_TZ)
+        now_naive = datetime.now()
+        
+        # Test date range conversion
+        test_date = "2025-01-15"
+        start_dt_pt, end_dt_pt = get_pacific_date_range(test_date, test_date)
+        
+        # Convert to UTC for Salesforce DATETIME fields
+        start_dt_utc = start_dt_pt.astimezone(pytz.UTC)
+        end_dt_utc = end_dt_pt.astimezone(pytz.UTC)
+        
+        return jsonify({
+            'success': True,
+            'current_times': {
+                'utc': now_utc.isoformat(),
+                'pacific': now_pt.isoformat(),
+                'naive': now_naive.isoformat(),
+                'pacific_date': now_pt.strftime('%Y-%m-%d'),
+                'pacific_time': now_pt.strftime('%H:%M:%S %Z')
+            },
+            'test_conversion': {
+                'input_date': test_date,
+                'pacific_start': start_dt_pt.isoformat(),
+                'pacific_end': end_dt_pt.isoformat(),
+                'utc_start': start_dt_utc.isoformat(),
+                'utc_end': end_dt_utc.isoformat(),
+                'salesforce_datetime_format': start_dt_utc.strftime('%Y-%m-%dT%H:%M:%S.000Z'),
+                'salesforce_date_format': start_dt_pt.strftime('%Y-%m-%d')
+            },
+            'time_differences': {
+                'utc_to_pt_hours': (now_pt.hour - now_utc.hour) % 24,
+                'is_dst': bool(now_pt.dst()),
+                'dst_offset': str(now_pt.dst()) if now_pt.dst() else 'No DST'
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in timezone check: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
+@app.route('/api/debug/clear-cache', methods=['POST'])
+def debug_clear_cache():
+    """
+    Debug route to clear all caches
+    """
+    try:
+        global CACHE_DATA, CACHE_TIME
+        
+        # Clear main cache
+        CACHE_DATA = None
+        CACHE_TIME = None
+        
+        # Clear global cache
+        if hasattr(global_cache, 'clear'):
+            global_cache.clear()
+        
+        # Clear daily cache
+        if hasattr(daily_cache, 'clear'):
+            daily_cache.clear()
+        
+        logger.info("🧹 All caches cleared")
+        
+        return jsonify({
+            'success': True,
+            'message': 'All caches cleared successfully',
+            'timestamp': datetime.now(PACIFIC_TZ).isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error clearing cache: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
-
-print('hello')
+@app.route('/api/debug/test-apis')
+def debug_test_apis():
+    """
+    Debug route to test API connections and basic functionality
+    """
+    results = {
+        'timestamp': datetime.now(PACIFIC_TZ).isoformat(),
+        'timezone': 'Pacific Time (America/Los_Angeles)',
+        'google_ads': {
+            'available': GOOGLE_ADS_AVAILABLE,
+            'connected': False,
+            'error': None,
+            'test_result': None
+        },
+        'litify': {
+            'available': SALESFORCE_AVAILABLE,
+            'connected': False,
+            'error': None,
+            'test_result': None
+        }
+    }
+    
+    # Test Google Ads
+    if GOOGLE_ADS_AVAILABLE:
+        if not ads_manager.client:
+            ads_manager.initialize()
+        
+        results['google_ads']['connected'] = ads_manager.connected
+        results['google_ads']['error'] = ads_manager.error
+        
+        if ads_manager.connected:
+            try:
+                # Try to fetch today's campaigns
+                today = datetime.now(PACIFIC_TZ).strftime('%Y-%m-%d')
+                campaigns = ads_manager.fetch_campaigns(today, today, active_only=True)
+                results['google_ads']['test_result'] = {
+                    'campaigns_found': len(campaigns) if campaigns else 0,
+                    'customer_ids': ads_manager.customer_ids,
+                    'is_mcc': ads_manager.is_mcc
+                }
+            except Exception as e:
+                results['google_ads']['test_result'] = f"Error: {str(e)}"
+    
+    # Test Litify
+    if SALESFORCE_AVAILABLE:
+        if not litify_manager.client:
+            litify_manager.initialize()
+        
+        results['litify']['connected'] = litify_manager.connected
+        results['litify']['error'] = litify_manager.error
+        
+        if litify_manager.connected:
+            try:
+                # Try to fetch today's leads
+                today = datetime.now(PACIFIC_TZ).strftime('%Y-%m-%d')
+                leads = litify_manager.fetch_detailed_leads(today, today, limit=10)
+                results['litify']['test_result'] = {
+                    'leads_found': len(leads) if leads else 0,
+                    'instance_url': litify_manager.instance_url,
+                    'case_types_cached': len(litify_manager.case_type_cache)
+                }
+            except Exception as e:
+                results['litify']['test_result'] = f"Error: {str(e)}"
+    
+    return jsonify(results)
 
 # ========== MAIN EXECUTION ==========
 
 if __name__ == '__main__':
     logger.info("=" * 60)
     logger.info("🚀 Starting Sweet James Dashboard with Exclusion Filters")
+    logger.info("🕐 Timezone: Pacific Time (America/Los_Angeles)")
     logger.info("=" * 60)
     
     logger.info("Initializing API connections...")
     
     if ads_manager.initialize():
         logger.info("✅ Google Ads API connected")
+        if ads_manager.is_mcc:
+            logger.info(f"   Using MCC account: {ads_manager.mcc_id}")
+            logger.info(f"   Child accounts: {len(ads_manager.child_accounts)}")
+        logger.info(f"   Customer IDs: {ads_manager.customer_ids}")
     else:
         logger.warning(f"⚠️ Google Ads API not connected: {ads_manager.error}")
     
@@ -4229,41 +4074,55 @@ if __name__ == '__main__':
     else:
         logger.warning(f"⚠️ Litify API not connected: {litify_manager.error}")
     
-    port = int(os.getenv('PORT', 9000))
-    is_production = os.getenv('ENVIRONMENT', 'development').lower() == 'production'
-    
-    logger.info(f"📊 Dashboard: http://localhost:{port}")
-    logger.info(f"🗺️ Campaign Mapping: http://localhost:{port}/campaign-mapping")
-    logger.info(f"📈 Forecasting: http://localhost:{port}/forecasting")
-    logger.info(f"📡 API Status: http://localhost:{port}/api/status")
+    port = int(os.getenv('PORT', 8080))
     logger.info("=" * 60)
-    logger.info("✅ FIELD NAME CORRECTIONS:")
-    logger.info("  • Custom fields (NO litify_pm__ prefix):")
-    logger.info("    - Retainer_Signed_Date__c")
-    logger.info("    - UTM_Campaign__c")
+    logger.info("📍 ENDPOINTS:")
+    logger.info(f"Dashboard: http://localhost:{port}")
+    logger.info(f"Campaign Mapping: http://localhost:{port}/campaign-mapping")
+    logger.info(f"Forecasting: http://localhost:{port}/forecasting")
+    logger.info(f"Comparison Dashboard: http://localhost:{port}/comparison-dashboard")
+    logger.info(f"Current Month Performance: http://localhost:{port}/current-month-performance")
+    logger.info(f"Annual Analytics: http://localhost:{port}/annual-analytics")
+    logger.info(f"API Status: http://localhost:{port}/api/status")
+    logger.info("=" * 60)
+    logger.info("🕐 TIMEZONE INFO:")
+    logger.info("All date ranges are now in Pacific Time (PT)")
+    logger.info("Query times: 12:00 AM PT to 11:59:59 PM PT")
+    logger.info("Current PT time: " + datetime.now(PACIFIC_TZ).strftime('%Y-%m-%d %H:%M:%S %Z'))
+    logger.info("=" * 60)
+    logger.info("📊 FIELD NAME CORRECTIONS:")
+    logger.info("Custom fields (NO litify_pm__ prefix):")
+    logger.info("    - Retainer_Signed_Date__c (DATE field)")
     logger.info("    - Client_Name__c")
     logger.info("    - isDroppedatIntake__c")
-    logger.info("  • Standard Litify fields (WITH litify_pm__ prefix):")
+    logger.info("Standard Litify fields (WITH litify_pm__ prefix):")
     logger.info("    - litify_pm__Status__c")
     logger.info("    - litify_pm__Display_Name__c")
+    logger.info("    - litify_pm__UTM_Campaign__c")
     logger.info("    - litify_pm__Case_Type__c")
     logger.info("    - litify_pm__Matter__c")
+    logger.info("DATETIME fields (use UTC conversion):")
+    logger.info("    - CreatedDate")
     logger.info("=" * 60)
     logger.info("✅ CONVERSION CRITERIA:")
-    logger.info("  • A retainer/conversion is counted when:")
+    logger.info("A retainer/conversion is counted when:")
     logger.info("    - Retainer Signed Date is not empty")
     logger.info("    - Status NOT 'Converted DAI' or 'Referred Out'")   
     logger.info("    - isDroppedatIntake = False")
     logger.info("    - Display Name != 'test'")
-    logger.info("  • Unqualified = In practice but NOT converted")
-    logger.info("  • Cases = Grouped by Matter ID (or companion ID, or solo)")
-    logger.info("  • Retainers = Total converted intakes")
+    logger.info("Unqualified = In practice but NOT converted")
+    logger.info("Cases = Grouped by Matter ID (or companion ID, or solo)")
+    logger.info("Retainers = Total converted intakes")
+    logger.info("=" * 60)
+    logger.info("🔧 DEBUG ENDPOINTS:")
+    logger.info(f"Test APIs: http://localhost:{port}/api/debug/test-apis")
+    logger.info(f"Timezone Check: http://localhost:{port}/api/debug/timezone-check")
+    logger.info(f"Campaign Dump: http://localhost:{port}/api/debug/campaigns-dump")
+    logger.info(f"LSA Discovery: http://localhost:{port}/api/debug/lsa-discovery")
+    logger.info(f"LSA Spend Check: http://localhost:{port}/api/debug/lsa-spend-check")
+    logger.info(f"Bucket Check: http://localhost:{port}/api/debug/bucket-check")
+    logger.info(f"Clear Cache: POST http://localhost:{port}/api/debug/clear-cache")
+    logger.info(f"Fix LSA Mapping: POST http://localhost:{port}/api/fix-lsa-mapping")
     logger.info("=" * 60)
     
-    if is_production:
-        # In production, use a proper WSGI server (gunicorn)
-        logger.info("🚀 Production mode - use gunicorn or another WSGI server")
-        logger.info("   Example: gunicorn --bind 0.0.0.0:$PORT app:app")
-    else:
-        # Development mode
-        app.run(debug=True, host='0.0.0.0', port=port)
+    app.run(debug=True, host='0.0.0.0', port=port)

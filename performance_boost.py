@@ -366,6 +366,7 @@ def optimize_litify_fetch(litify_manager, start_date=None, end_date=None, limit=
     Now optimized for single-day fetches.
     """
     from datetime import datetime
+    import pytz
     
     # Special handling for single-day fetches
     if start_date and end_date and start_date == end_date:
@@ -390,86 +391,109 @@ def optimize_litify_fetch(litify_manager, start_date=None, end_date=None, limit=
     if not litify_manager.client or not litify_manager.connected:
         return litify_manager.get_demo_litify_leads(include_spam, include_abandoned, include_duplicate)
     
-    all_records = []
-    
-    # Query 1: Leads CREATED in date range (for lead metrics)
-    leads_query = f"""
-        SELECT Id, Name, CreatedDate, 
-            litify_pm__Status__c,
-            litify_pm__Display_Name__c,
-            litify_pm__First_Name__c,
-            litify_pm__Last_Name__c,
-            Client_Name__c,
-            litify_pm__Case_Type__c,
-            litify_pm__Case_Type__r.Name,
-            Retainer_Signed_Date__c,
-            litify_pm__UTM_Campaign__c,
-            litify_pm__Matter__c,
-            litify_ext__Companion__c,
-            isDroppedatIntake__c
-        FROM litify_pm__Intake__c
-        WHERE litify_pm__UTM_Campaign__c != null
-        AND CreatedDate >= {start_date if start_date else datetime.now().strftime('%Y-%m-%d')}T00:00:00Z 
-        AND CreatedDate <= {end_date if end_date else datetime.now().strftime('%Y-%m-%d')}T23:59:59Z
-        ORDER BY CreatedDate DESC
-        LIMIT {limit}
-    """
-    
-    # Query 2: Leads CONVERTED in date range (for conversion metrics)
-    conversions_query = f"""
-        SELECT Id, Name, CreatedDate, 
-            litify_pm__Status__c,
-            litify_pm__Display_Name__c,
-            litify_pm__First_Name__c,
-            litify_pm__Last_Name__c,
-            Client_Name__c,
-            litify_pm__Case_Type__c,
-            litify_pm__Case_Type__r.Name,
-            Retainer_Signed_Date__c,
-            litify_pm__UTM_Campaign__c,
-            litify_pm__Matter__c,
-            litify_ext__Companion__c,
-            isDroppedatIntake__c
-        FROM litify_pm__Intake__c
-        WHERE litify_pm__UTM_Campaign__c != null
-        AND Retainer_Signed_Date__c >= {start_date if start_date else datetime.now().strftime('%Y-%m-%d')} 
-        AND Retainer_Signed_Date__c <= {end_date if end_date else datetime.now().strftime('%Y-%m-%d')}
-        ORDER BY Retainer_Signed_Date__c DESC
-        LIMIT {limit}
-    """
-    
     try:
+        # Get Pacific timezone
+        PACIFIC_TZ = pytz.timezone('America/Los_Angeles')
+        
+        # Parse dates properly
+        if start_date:
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+            start_dt_pt = PACIFIC_TZ.localize(datetime.combine(start_dt.date(), datetime.min.time()))
+            start_dt_utc = start_dt_pt.astimezone(pytz.UTC)
+        else:
+            start_dt_utc = datetime.now(pytz.UTC).replace(hour=0, minute=0, second=0)
+            
+        if end_date:
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+            end_dt_pt = PACIFIC_TZ.localize(datetime.combine(end_dt.date(), datetime.max.time()))
+            end_dt_utc = end_dt_pt.astimezone(pytz.UTC)
+        else:
+            end_dt_utc = datetime.now(pytz.UTC).replace(hour=23, minute=59, second=59)
+        
+        # Format for SOQL queries
+        datetime_start = start_dt_utc.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+        datetime_end = end_dt_utc.strftime('%Y-%m-%dT%H:%M:%S.999Z')
+        date_start = start_date if start_date else datetime.now().strftime('%Y-%m-%d')
+        date_end = end_date if end_date else datetime.now().strftime('%Y-%m-%d')
+        
+        # Query 1: Leads CREATED in date range (for lead counts)
+        leads_query = f"""
+            SELECT Id, Name, CreatedDate, 
+                litify_pm__Status__c,
+                litify_pm__Display_Name__c,
+                litify_pm__First_Name__c,
+                litify_pm__Last_Name__c,
+                Client_Name__c,
+                litify_pm__Case_Type__c,
+                litify_pm__Case_Type__r.Name,
+                Retainer_Signed_Date__c,
+                litify_pm__UTM_Campaign__c,
+                litify_pm__Matter__c,
+                litify_ext__Companion__c,
+                isDroppedatIntake__c
+            FROM litify_pm__Intake__c
+            WHERE litify_pm__UTM_Campaign__c != null
+            AND CreatedDate >= {datetime_start}
+            AND CreatedDate <= {datetime_end}
+            ORDER BY CreatedDate DESC
+            LIMIT {limit}
+        """
+        
+        # Query 2: Leads CONVERTED in date range (for conversion metrics)
+        conversions_query = f"""
+            SELECT Id, Name, CreatedDate, 
+                litify_pm__Status__c,
+                litify_pm__Display_Name__c,
+                litify_pm__First_Name__c,
+                litify_pm__Last_Name__c,
+                Client_Name__c,
+                litify_pm__Case_Type__c,
+                litify_pm__Case_Type__r.Name,
+                Retainer_Signed_Date__c,
+                litify_pm__UTM_Campaign__c,
+                litify_pm__Matter__c,
+                litify_ext__Companion__c,
+                isDroppedatIntake__c
+            FROM litify_pm__Intake__c
+            WHERE litify_pm__UTM_Campaign__c != null
+            AND Retainer_Signed_Date__c >= {date_start}
+            AND Retainer_Signed_Date__c <= {date_end}
+            ORDER BY Retainer_Signed_Date__c DESC
+            LIMIT {limit}
+        """
+        
         # Execute both queries
         created_leads = {}
         converted_leads = {}
         
         # Get leads created in period
-        logger.info("Fetching leads CREATED in date range...")
+        logger.info(f"Fetching leads CREATED between {datetime_start} and {datetime_end}...")
         result = litify_manager.client.query(leads_query)
         for record in result['records']:
             created_leads[record['Id']] = record
+        logger.info(f"   Found {len(created_leads)} leads created in period")
         
         # Get leads converted in period
-        logger.info("Fetching leads CONVERTED in date range...")
+        logger.info(f"Fetching leads CONVERTED between {date_start} and {date_end}...")
         result = litify_manager.client.query(conversions_query)
         for record in result['records']:
             converted_leads[record['Id']] = record
+        logger.info(f"   Found {len(converted_leads)} leads converted in period")
         
-        # Merge the results intelligently
+        # Merge results - mark conversions from previous periods
         all_records_dict = created_leads.copy()
+        conversions_from_previous = 0
         
-        # Add conversions that weren't created in this period
         for lead_id, lead_data in converted_leads.items():
-            if lead_id not in all_records_dict:
-                # Mark this as a conversion from a previous period
+            if lead_id not in created_leads:
+                # This is a conversion from a previous period
                 lead_data['from_previous_period'] = True
                 all_records_dict[lead_id] = lead_data
+                conversions_from_previous += 1
+        
+        logger.info(f"   Including {conversions_from_previous} conversions from previous periods")
         
         all_records = list(all_records_dict.values())
-        
-        # Process leads - same as before
-        leads = []
-        excluded_count = 0
         
         # Get IN_PRACTICE_CASE_TYPES and EXCLUDED_CASE_TYPES
         try:
@@ -484,6 +508,10 @@ def optimize_litify_fetch(litify_manager, start_date=None, end_date=None, limit=
             EXCLUDED_CASE_TYPES = ['Spam', 'Abandoned', 'Duplicate']
             UTM_TO_BUCKET_MAPPING = {}
         
+        # Process leads
+        leads = []
+        excluded_count = 0
+        
         for record in all_records:
             # Get UTM Campaign
             utm_campaign = record.get('litify_pm__UTM_Campaign__c', '')
@@ -494,9 +522,7 @@ def optimize_litify_fetch(litify_manager, start_date=None, end_date=None, limit=
                 case_type = record['litify_pm__Case_Type__r'].get('Name', '')
             
             # Determine if in practice
-            in_practice = False
-            if case_type and case_type in IN_PRACTICE_CASE_TYPES:
-                in_practice = True
+            in_practice = case_type in IN_PRACTICE_CASE_TYPES
             
             # Check if it's an excluded type
             is_excluded = case_type in EXCLUDED_CASE_TYPES
@@ -551,11 +577,25 @@ def optimize_litify_fetch(litify_manager, start_date=None, end_date=None, limit=
             else:
                 salesforce_url = f"https://sweetjames.lightning.force.com/lightning/r/litify_pm__Intake__c/{record.get('Id')}/view"
             
-            # Build lead data object
+            # Determine if from previous period
+            from_previous_period = record.get('from_previous_period', False)
+
+            created_date_formatted = ''
+            if record.get('CreatedDate'):
+                try:
+                    # Salesforce returns ISO format, convert to Pacific Time
+                    created_dt = datetime.fromisoformat(record.get('CreatedDate').replace('+0000', '+00:00'))
+                    created_dt_pt = created_dt.astimezone(PACIFIC_TZ)
+                    created_date_formatted = created_dt_pt.strftime('%m/%d %I:%M %p')
+                except:
+                    created_date_formatted = record.get('CreatedDate')
+            
+            # CRITICAL: Set the counting flags correctly
             lead_data = {
                 'id': record.get('Id', ''),
                 'salesforce_url': salesforce_url,
                 'created_date': record.get('CreatedDate', ''),
+                'created_date_formatted': created_date_formatted, 
                 'status': status or 'Unknown',
                 'client_name': (
                     record.get('litify_pm__Display_Name__c', '') or
@@ -576,17 +616,18 @@ def optimize_litify_fetch(litify_manager, start_date=None, end_date=None, limit=
                 'companion_case_id': record.get('litify_ext__Companion__c', '') or '',
                 'is_dropped': is_dropped,
                 'retainer_signed_date': retainer_signed,
-                'from_previous_period': record.get('from_previous_period', False),
-                'count_for_leads': not record.get('from_previous_period', False),
-                'count_for_conversions': is_converted
+                'from_previous_period': from_previous_period,
+                # CRITICAL FLAGS FOR COUNTING
+                'count_for_leads': not from_previous_period,  # Only count if created in this period
+                'count_for_conversions': is_converted  # Count if converted
             }
             
             leads.append(lead_data)
         
         logger.info(f"✅ Fetched {len(leads)} total records")
-        logger.info(f"   - {len(created_leads)} created in period")
-        logger.info(f"   - {len(converted_leads)} converted in period")
-        logger.info(f"   - {len([l for l in leads if l['from_previous_period']])} conversions from previous periods")
+        logger.info(f"   - {len([l for l in leads if l['count_for_leads']])} created in period")
+        logger.info(f"   - {len([l for l in leads if l['count_for_conversions']])} converted in period")
+        logger.info(f"   - {conversions_from_previous} conversions from previous periods")
         
         # Cache the processed results
         global_cache.set(cache_key, leads)

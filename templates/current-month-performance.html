@@ -771,27 +771,33 @@
             </div>
         </div>
         
-        <nav class="p-6 space-y-2">
-            <a href="/" class="nav-link">
-                <i class="fas fa-th-large mr-3 text-gray-400"></i>
-                <span>Dashboard Home</span>
-            </a>
-            <a href="/current-month-performance" class="nav-link active">
-                <i class="fas fa-calendar-day mr-3 text-gray-400"></i>
-                <span>Current Month</span>
-            </a>
-            <a href="/forecasting" class="nav-link">
-                <i class="fas fa-chart-line mr-3 text-gray-400"></i>
-                <span>Forecasting</span>
-            </a>
-            <a href="/campaign-mapping" class="nav-link">
-                <i class="fas fa-sitemap mr-3 text-gray-400"></i>
-                <span>Campaign Mapping</span>
-            </a>
-            <a href="/annual-analytics" class="nav-link">
-                <i class="fas fa-chart-bar mr-3 text-gray-400"></i>
-                <span>Annual Analytics</span>
-            </a>
+        <nav class="p-6 space-y-6">
+            <!-- Navigation Section -->
+            <div>
+                <h3 class="text-xs font-medium text-gray-500 dark-mode:text-gray-400 uppercase tracking-wider mb-3">Dashboards</h3>
+                <nav class="space-y-1">
+                    <a href="/" class="nav-link">
+                        <i class="fas fa-chart-line mr-3 w-4"></i>
+                        <span>Daily PPC Dashboard</span>
+                    </a>
+                    <!-- <a href="/forecasting" class="nav-link">
+                        <i class="fas fa-chart-bar mr-3 w-4"></i>
+                        <span>Forecasting</span>
+                    </a>
+                    <a href="/comparison-dashboard" class="nav-link">
+                        <i class="fas fa-balance-scale mr-3 w-4"></i>
+                        <span>Period Comparison</span>
+                    </a> -->
+                    <a href="/current-month-performance" class="nav-link active">
+                        <i class="fas fa-calendar-day mr-3 w-4"></i>
+                        <span>Current Month</span>
+                    </a>
+                    <a href="/annual-analytics" class="nav-link">
+                        <i class="fas fa-calendar mr-3 w-4"></i>
+                        <span>Annual Analytics</span>
+                    </a>
+                </nav>
+            </div>
         </nav>
         
         <div class="px-6 pb-6 space-y-4">
@@ -1292,11 +1298,11 @@
         const avgCpl = totals.leads > 0 ? totals.spend / totals.leads : 0;
         const avgCpa = totals.cases > 0 ? totals.spend / totals.cases : 0;
         const avgCpr = totals.retainers > 0 ? totals.spend / totals.retainers : 0;
-        const convRate = totals.leads > 0 ? (totals.retainers / totals.leads) * 100 : 0;
+        const convRate = totals.inPractice > 0 ? (totals.retainers / totals.inPractice) * 100 : 0;
         
         // Calculate YouTube metrics
         const ytCpl = youtubeTotals.leads > 0 ? youtubeTotals.spend / youtubeTotals.leads : 0;
-        const ytConvRate = youtubeTotals.leads > 0 ? (youtubeTotals.retainers / youtubeTotals.leads) * 100 : 0;
+        const ytConvRate = youtubeTotals.inPractice > 0 ? (youtubeTotals.retainers / youtubeTotals.inPractice) * 100 : 0;
         
         const filterLabel = currentStateFilter !== 'all' ? 
             `${currentStateFilter} State` : 
@@ -1409,7 +1415,8 @@
                             result.cases += bucket.cases || 0;
                             result.retainers += bucket.retainers || 0;
                             result.inPractice += bucket.inPractice || bucket.in_practice || 0;
-                            result.unqualified += bucket.unqualified || 0;
+                            // Calculate unqualified as in-practice minus retainers
+                            result.unqualified += Math.max(0, (bucket.inPractice || bucket.in_practice || 0) - (bucket.retainers || 0));
                         }
                     });
                 } else {
@@ -1419,7 +1426,8 @@
                     result.cases = day.cases || 0;
                     result.retainers = day.retainers || 0;
                     result.inPractice = day.inPractice || day.in_practice || 0;
-                    result.unqualified = day.unqualified || 0;
+                    // Calculate unqualified as in-practice minus retainers
+                    result.unqualified = Math.max(0, result.inPractice - result.retainers);
                 }
             } else {
                 // Specific bucket
@@ -1431,7 +1439,8 @@
                         result.cases = bucket.cases || 0;
                         result.retainers = bucket.retainers || 0;
                         result.inPractice = bucket.inPractice || bucket.in_practice || 0;
-                        result.unqualified = bucket.unqualified || 0;
+                        // Calculate unqualified as in-practice minus retainers
+                        result.unqualified = Math.max(0, result.inPractice - result.retainers);
                     }
                 }
             }
@@ -1447,10 +1456,11 @@
                             result.cases += bucket.cases || 0;
                             result.retainers += bucket.retainers || 0;
                             result.inPractice += bucket.inPractice || bucket.in_practice || 0;
-                            result.unqualified += bucket.unqualified || 0;
                         }
                     }
                 });
+                // Calculate unqualified after aggregation
+                result.unqualified = Math.max(0, result.inPractice - result.retainers);
             }
         }
         
@@ -1458,7 +1468,8 @@
         result.cpl = result.leads > 0 ? result.spend / result.leads : 0;
         result.cpa = result.cases > 0 ? result.spend / result.cases : 0;
         result.cpr = result.retainers > 0 ? result.spend / result.retainers : 0;
-        result.convRate = result.leads > 0 ? (result.retainers / result.leads) : 0;
+        // CRITICAL CHANGE: Conversion rate is now retainers / inPractice, not retainers / leads
+        result.convRate = result.inPractice > 0 ? (result.retainers / result.inPractice) : 0;
         
         return result;
     }
@@ -1664,7 +1675,7 @@
         const avgCpl = columnTotals.leads > 0 ? columnTotals.spend / columnTotals.leads : 0;
         const avgCpa = columnTotals.cases > 0 ? columnTotals.spend / columnTotals.cases : 0;
         const avgCpr = columnTotals.retainers > 0 ? columnTotals.spend / columnTotals.retainers : 0;
-        const convRate = columnTotals.leads > 0 ? (columnTotals.retainers / columnTotals.leads) : 0;
+        const convRate = columnTotals.inPractice > 0 ? (columnTotals.retainers / columnTotals.inPractice) : 0;
         const inPracticePct = columnTotals.leads > 0 ? (columnTotals.inPractice / columnTotals.leads) : 0;
         const unqualifiedPct = columnTotals.leads > 0 ? (columnTotals.unqualified / columnTotals.leads) : 0;
         
@@ -1693,7 +1704,7 @@
             const ytCpl = crispYoutubeTotals.leads > 0 ? crispYoutubeTotals.spend / crispYoutubeTotals.leads : 0;
             const ytCpa = crispYoutubeTotals.cases > 0 ? crispYoutubeTotals.spend / crispYoutubeTotals.cases : 0;
             const ytCpr = crispYoutubeTotals.retainers > 0 ? crispYoutubeTotals.spend / crispYoutubeTotals.retainers : 0;
-            const ytConvRate = crispYoutubeTotals.leads > 0 ? (crispYoutubeTotals.retainers / crispYoutubeTotals.leads) : 0;
+            const ytConvRate = crispYoutubeTotals.inPractice > 0 ? (crispYoutubeTotals.retainers / crispYoutubeTotals.inPractice) : 0;
             const ytInPracticePct = crispYoutubeTotals.leads > 0 ? (crispYoutubeTotals.inPractice / crispYoutubeTotals.leads) : 0;
             const ytUnqualifiedPct = crispYoutubeTotals.leads > 0 ? (crispYoutubeTotals.unqualified / crispYoutubeTotals.leads) : 0;
             
@@ -2070,7 +2081,8 @@
                             ((bucket.inPractice || bucket.in_practice || 0) / bucket.leads * 100).toFixed(1) : '0';
                         const bucketUnqualifiedPct = bucket.leads > 0 ? 
                             ((bucket.unqualified || 0) / bucket.leads * 100).toFixed(1) : '0';
-                        const bucketConvRate = ((bucket.convRate || bucket.conv_rate || 0) * 100).toFixed(2);
+                        const bucketConvRate = (bucket.inPractice || bucket.in_practice || 0) > 0 ? 
+    ((bucket.retainers || 0) / (bucket.inPractice || bucket.in_practice || 0)) : 0;
                         
                         csvContent += date + ',' + dayNum + ',' + bucket.name + ',' + 
                             Math.round(bucket.spend) + ',' + Math.round(bucket.leads) + ',' + 
@@ -2084,8 +2096,8 @@
                     // Export filtered data
                     const inPracticePct = dayData.leads > 0 ? 
                         (dayData.inPractice / dayData.leads * 100).toFixed(1) : '0';
-                    const unqualifiedPct = dayData.leads > 0 ? 
-                        (dayData.unqualified / dayData.leads * 100).toFixed(1) : '0';
+                    // Keep these as-is (unqualified % should be of total leads, not in-practice)
+                    const unqualifiedPct = dayData.leads > 0 ? (dayData.unqualified / dayData.leads) : 0;
                     const convRate = (dayData.convRate * 100).toFixed(2);
                     
                     const bucketName = selectedBucket === 'all' ? 'All Buckets' : 
